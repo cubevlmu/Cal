@@ -1,5 +1,6 @@
-#include "base/Utils.hpp"
 #include "cal/ast/ASTNodes.hpp"
+
+#include <json/json.h>
 
 namespace cal {
 
@@ -8,12 +9,13 @@ namespace cal {
     { }
 
 
-    std::string AssignmentNode::toString() const {
-        BeginAppender();
-        AppenderAppend("[Assignment] Result:\n\t");
-        AppenderAppend(m_variable->toString());
-        AppenderAppend("\n\t= \n\t");
-        AppenderAppend(m_value->toString());
-        return EndAppender();
+    Json::Value AssignmentNode::buildOutput() const {
+        Json::Value value(Json::ValueType::objectValue);
+        
+        value["type"]   = "Assignment";
+        value["result"] = m_variable->buildOutput();
+        value["assign"] = m_value->buildOutput();  
+        
+        return value;
     }
 }

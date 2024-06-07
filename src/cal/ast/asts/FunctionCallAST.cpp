@@ -1,5 +1,6 @@
-#include "base/Utils.hpp"
 #include "cal/ast/ASTNodes.hpp"
+
+#include <json/json.h>
 
 namespace cal {
 
@@ -10,17 +11,19 @@ namespace cal {
     }
 
 
-    std::string FunctionCallNode::toString() const
+    Json::Value FunctionCallNode::buildOutput() const
     {
-        BeginAppender();
-        AppenderAppend("[FunctionCall] \n\tName: \n\t");
-        AppenderAppend(m_functionName->toString());
-        AppenderAppend("\n\tArguments: ");
+        Json::Value value(Json::ValueType::objectValue);
+        Json::Value args(Json::ValueType::arrayValue);
+        
         for(auto& arg : m_arguments) {
-            AppenderAppend(arg->toString());
-            AppenderAppend("\n\t");
+            args.append(arg->buildOutput());
         }
 
-        return EndAppender();
+        value["type"] = "FunctionCall";
+        value["name"] = m_functionName->buildOutput();
+        value["args"] = args;
+
+        return value;
     }
 }

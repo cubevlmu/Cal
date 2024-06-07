@@ -11,7 +11,7 @@ namespace spdlog {
     class logger;
 }
 
-namespace concept {
+namespace cal {
 
     enum LogLevel {
         LogWarn, LogError, LogDebug, LogInfo, LogTrace
@@ -46,11 +46,11 @@ namespace concept {
         }
 
     public:
-        Logger(const char* name = "concept") {
+        Logger(const char* name = "cal") {
             init(name);
         }
 
-        void init(const char* name = "concept");
+        void init(const char* name = "cal");
 
         template <typename... T> 
         void info(const T&... args) 
@@ -86,10 +86,10 @@ namespace concept {
     };
 }
 
-#define InitLogger() ::concept::LoggerManager::createLogger()
+#define InitLogger() ::cal::LoggerManager::createLogger()
 
-#define LogInfo(...)  ::concept::LoggerManager::getLogger()->info(__VA_ARGS__)
-#define LogWarn(...)  ::concept::LoggerManager::getLogger()->warn(__VA_ARGS__)
-#define LogError(...) ::concept::LoggerManager::getLogger()->error(__VA_ARGS__)
-#define LogDebug(...) ::concept::LoggerManager::getLogger()->debug(__VA_ARGS__)
-#define LogTrace(...) ::concept::LoggerManager::getLogger()->trace(__VA_ARGS__)
+#define LogInfo(...)  ::cal::LoggerManager::getLogger()->info(__VA_ARGS__)
+#define LogWarn(...)  ::cal::LoggerManager::getLogger()->warn(__VA_ARGS__)
+#define LogError(...) ::cal::LoggerManager::getLogger()->error(__VA_ARGS__)
+#define LogDebug(...) ::cal::LoggerManager::getLogger()->debug(__VA_ARGS__)
+#define LogTrace(...) ::cal::LoggerManager::getLogger()->trace(__VA_ARGS__)

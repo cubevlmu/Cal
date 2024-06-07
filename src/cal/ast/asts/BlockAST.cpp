@@ -1,6 +1,6 @@
-#include "base/Utils.hpp"
-
 #include "cal/ast/ASTNodes.hpp"
+
+#include <json/json.h>
 
 namespace cal {
 
@@ -11,15 +11,18 @@ namespace cal {
     }
 
 
-    std::string BlockNode::toString() const
+    Json::Value BlockNode::buildOutput() const
     {
-        BeginAppender();
-        AppenderAppend("[Block] \n");
+        Json::Value value(Json::ValueType::objectValue);
+        Json::Value contents(Json::ValueType::arrayValue);
+
         for(auto& node : m_statements) {
-            AppenderAppend("\t");
-            AppenderAppend(node->toString());
-            AppenderAppend("\n");
+            contents.append(node->buildOutput());
         }
-        return EndAppender();
+
+        value["type"] = "Block";
+        value["content"] = contents;
+
+        return value;
     }
 }

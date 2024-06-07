@@ -7,9 +7,9 @@
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/sinks/basic_file_sink.h>
 
-#define FORMAT "[%H:%M:%S %z] [%^%L%$] [thread %t] %n : %v"
+#define FORMAT "[%^%L%$] %v"
 
-namespace concept {
+namespace cal {
     std::shared_ptr<Logger> LoggerManager::s_logger;
 
     void Logger::addLog(const char* val) { ss << val; }

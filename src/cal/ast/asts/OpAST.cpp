@@ -1,5 +1,6 @@
-#include "base/Utils.hpp"
 #include "cal/ast/ASTNodes.hpp"
+
+#include <json/json.h>
 
 namespace cal {
 
@@ -18,15 +19,14 @@ namespace cal {
     }
 
 
-    std::string cal::OpNode::toString() const { 
-        BeginAppender();
-        AppenderAppend("[OpNode] \n\t");
-        AppenderAppend(m_left->toString());
-        AppenderAppend(" \n\t");
-        AppenderAppend(OpTypeMsg[m_op_type]);
-        AppenderAppend("\n\t");
-        AppenderAppend(m_right->toString());
-        return EndAppender();
+    Json::Value OpNode::buildOutput() const {
+        Json::Value value(Json::ValueType::objectValue);
+
+        value["type"] = "Operator";
+        value["op"] = OpTypeMsg[m_op_type];
+        value["left"] = m_left->buildOutput();
+        value["right"] = m_right->buildOutput();
+
+        return value;
     }
 }
-

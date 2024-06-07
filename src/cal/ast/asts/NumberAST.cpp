@@ -1,7 +1,7 @@
 #include "cal/ast/ASTNodes.hpp"
 
 #include "base/Logger.hpp"
-#include "base/Utils.hpp"
+#include <json/json.h>
 #include "globals.hpp"
 
 namespace cal {
@@ -17,44 +17,41 @@ namespace cal {
         case Double:
             this->d = std::stod(numberStr);
             break;
-        case Int:
+        case I32:
             this->i = std::stoi(numberStr);
             break;
-        case Long:
+        case I64:
             this->l = std::stoll(numberStr);
             break;
         case NotANumber:
         default:
             LogError("[Parser] Not a number -> ", numberStr);
             ASSERT(false);
-            break;
         }
         this->number_type = tp;
     }
 
 
-    std::string NumberNode::toString() const {
-        BeginAppender();
-        AppenderAppend("[NumberNode] \n\tType : ");
-        AppenderAppend(NumTypeChar[number_type]);
-        AppenderAppend(" \n\tValue : ");
+    Json::Value NumberNode::buildOutput() const {
+        Json::Value value(Json::ValueType::objectValue);
+
+        value["type"] = "Number";
+        value["valueType"] = NumTypeChar[number_type];
+
         switch (number_type)
         {
         case Float:
-            AppenderAppend(f);
-            break;
+            value["value"] = f;
         case Double:
-            AppenderAppend(d);
-            break;
-        case Int:
-            AppenderAppend(i);
-            break;
-        case Long:
-            AppenderAppend(l);
-            break;
+            value["value"] = d;
+        case I32:
+            value["value"] = i;
+        case I64:
+            value["value"] = std::to_string(l);
         default: break;
         }
-        return EndAppender();
+        
+        return value;
     }
 
 
@@ -70,10 +67,10 @@ namespace cal {
             long long intValue = std::stoll(str, &pos);
             if (pos == str.size()) {
                 if (intValue <= std::numeric_limits<int>::max() && intValue >= std::numeric_limits<int>::min()) {
-                    return Int;
+                    return I32;
                 }
                 else {
-                    return Long;
+                    return I64;
                 }
             }
         }

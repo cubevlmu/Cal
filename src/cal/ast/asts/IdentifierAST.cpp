@@ -1,6 +1,6 @@
 #include "cal/ast/ASTNodes.hpp"
 
-#include "base/Utils.hpp"
+#include <json/json.h>
 
 namespace cal {
 
@@ -16,13 +16,14 @@ namespace cal {
     { }
 
 
-    std::string IdentifierNode::toString() const {
-        BeginAppender();
-        AppenderAppend("[Identifier] \n\tType: ");
-        AppenderAppend(IDF_Type_Name[m_type]);
-        AppenderAppend(" \n\t");
-        AppenderAppend(m_name);
-        return EndAppender();
+    Json::Value IdentifierNode::buildOutput() const {
+        Json::Value value(Json::ValueType::objectValue);
+        
+        value["type"] = "Identifier";
+        value["body"] = IDF_Type_Name[m_type];
+        value["name"] = m_name;
+        
+        return value;
     }
 
 
@@ -40,5 +41,3 @@ namespace cal {
         };
     }
 }
-
-

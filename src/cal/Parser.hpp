@@ -8,11 +8,13 @@ namespace cal {
 
     class TypeChecker;
     class CodeGenerator;
+    class LLVMCodeGenerator;
 
     class Parser 
     {
         friend class TypeChecker;
         friend class CodeGenerator;
+        friend class LLVMCodeGenerator;
         
     public:
         Parser(Lexer& lexer);
@@ -26,6 +28,7 @@ namespace cal {
         bool match(Lexer::Token::TokenType type);
 
         ASTBase* parseStatements();
+        ASTBase* parseVariableDeclear(bool isConst);
         ASTBase* parseStatement();
         ASTBase* parseAssignment();
         ASTBase* parseFunctionCall();
@@ -33,6 +36,9 @@ namespace cal {
         ASTBase* parseTerm();
         ASTBase* parseFactor();
         ASTBase* parsePrimary();
+        ASTBase* parseFunctionDeclear();
+        ASTBase* parseBlock();
+        ASTBase* parseReturn();
 
     private:
         Lexer& m_lex;
