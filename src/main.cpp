@@ -4,8 +4,8 @@
 #include "cal/Lexer.hpp"
 #include "cal/Parser.hpp"
 #include "cal/TypeChecker.hpp"
-#include "cal/CodeGenerator.hpp"
-#include "cal/bytecode/ByteCode.hpp"
+// #include "cal/CodeGenerator.hpp"
+// #include "cal/bytecode/ByteCode.hpp"
 
 int main(int argc, char** argv) {
     InitLogger();
@@ -22,13 +22,41 @@ int main(int argc, char** argv) {
         // Go to command line mode
     }
 
-    cal::CalBytecode code {};
-    code.read("test.calcls");
-    code.debugPrint();
+    // cal::CalBytecode code {};
+    // code.read("test.calcls");
+    // code.debugPrint();
 
-    return 0;
+    // return 0;
 
-    cal::Lexer lex("a = 10 + 20 * (11 + 12); print(a);");
+    std::string test_source = R"(
+        /* 
+        import std.network.socket;
+        import std.io.file;
+        module main; 
+        */
+
+        /*
+        struct test {
+            a : i32,
+            b : const i32,
+            c : internal i32[],
+        }
+        */
+        
+        fun main(args : string[]) {
+            var c : i32;
+            var a = 0;
+            var b : i32 = 10;
+            a = 10 + 20 * (11 + 12); 
+            print(a*b);
+        }
+
+        fun test() : i32 { 
+            return 10; 
+        }
+    )";
+
+    cal::Lexer lex(test_source);
     lex.analyze();
     lex.debugPrint();
 
@@ -36,19 +64,19 @@ int main(int argc, char** argv) {
     parser.parse();
     parser.debugPrint();
 
-    cal::TypeChecker type_checker(parser);
+    // cal::TypeChecker type_checker(parser);
 
-    type_checker.registerFunctionDeclear("print", {cal::ASTBase::NumType::Int});
+    // type_checker.registerFunctionDeclear("print", { cal::ASTBase::NumType::I32 });
 
-    type_checker.check();
-    type_checker.debugPrint();
+    // type_checker.check();
+    // type_checker.debugPrint();
 
-    cal::CodeGenerator code_gen(parser);
-    code_gen.compile();
-    code_gen.debugPrint();
+    // cal::CodeGenerator code_gen(parser);
+    // code_gen.compile();
+    // code_gen.debugPrint();
  
-    cal::CalBytecode codes = code_gen.getBytecodes();
-    codes.write("test.calcls");
+    // cal::CalBytecode codes = code_gen.getBytecodes();
+    // codes.write("test.calcls");
 
     //cal::waitAnyKeyToExit();
     return 0;

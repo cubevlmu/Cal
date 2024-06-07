@@ -8,7 +8,9 @@
 #include <csignal>
 
 
-namespace concept {
+#define DEBUGING
+
+namespace cal {
 
 // For Enable CVK's Debug Layer
     #define CVK_DEBUG
@@ -52,19 +54,19 @@ namespace concept {
 #define cb_inline __forceinline
 #define cb_restrict __restrict
 #else
-#define cb_debug_break() raise(SIGTRAP)
+#define cb_debug_break() throw std::runtime_error("failed to assert") 
+//raise(SIGTRAP)
 #define cb_inline __attribute__((always_inline)) inline
 #define cb_restrict __restrict__
 #endif
 
 #define ASSERT(x)                                  \
-    LogError("!!!SIGTRAP")
-    // do                                             \
-    // {                                              \
-    //     const volatile bool _assert_result = !(x); \
-    //     if (_assert_result)                        \
-    //         cb_debug_break();                      \
-    // } while (false) 
+    do                                             \
+    {                                              \
+        const volatile bool _assert_result = !(x); \
+        if (_assert_result)                        \
+            cb_debug_break();                      \
+    } while (false) 
 
 
 

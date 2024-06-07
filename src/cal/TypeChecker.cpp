@@ -9,8 +9,10 @@
 namespace cal {
 
 #define TypeCheck_ERR(...) \
-        LogError(__VA_ARGS__); \
-        ASSERT(false);
+        do { \
+            LogError(__VA_ARGS__); \
+            ASSERT(false); \
+        } while(false)
 
 #define TypeCheck_DEAL_WITH_FUNC_CALL(node, type) \
         if(type == ASTBase::FunctionReturn) { \
@@ -26,7 +28,7 @@ namespace cal {
             auto* id_node = static_cast<IdentifierNode*>(node); \
             if (type == ASTBase::NumType::VariableReturn) { \
                 auto& name = id_node->m_name; \
-                type = getVariableType(name, ASTBase::ERR_TP); \
+                type = getVariableType(name); \
                 if (type == ASTBase::ERR_TP) \
                     TypeCheck_ERR("Argument is not defined or type error"); \
             } \
@@ -123,6 +125,9 @@ namespace cal {
         else if (auto opNode = dynamic_cast<OpNode*>(node)) {
             checkOperator(opNode);
         }
+        else if (auto varDeclearNode = dynamic_cast<VariableDeclearNode*>(node)) {
+            checkVariableDeclear(varDeclearNode);
+        }
         else if (auto assignNode = dynamic_cast<AssignmentNode*>(node)) {
             checkAssignment(assignNode);
         }
@@ -190,6 +195,30 @@ namespace cal {
     }
 
 
+    void TypeChecker::checkVariableDeclear(VariableDeclearNode* node)
+    {
+        if (node->m_initial_value == nullptr && node->m_variable_type == ASTBase::NumType::VariableReturn)
+            TypeCheck_ERR("Expected type declear after the variable name");
+        
+        if (node->m_initial_value != nullptr) {
+            checkAST(node->m_initial_value);
+        }
+
+        if (node->m_variable_type == ASTBase::NumType::VariableReturn) {
+            node->m_variable_type = node->m_initial_value->getNumType();
+            if(node->m_variable_type == ASTBase::NumType::ERR_TP)
+                TypeCheck_ERR("Unexpected initial value for this variable. Initial value's type is invalid");
+        } else if (node->m_variable_type == ASTBase::NumType::USER_DEFINED) {
+            //TODO
+        }
+
+        if (hasThisVariable(node->m_name->m_name))
+            TypeCheck_ERR("Unexpected declear before this variable declear (samename)");
+        
+        m_variables.insert(std::make_pair(node->m_name->m_name, node->m_variable_type));
+    }
+
+
     void TypeChecker::checkAssignment(AssignmentNode* node)
     {
         checkAST(node->m_value);
@@ -200,7 +229,7 @@ namespace cal {
 
         // 假设变量类型已知，可以在变量表中查找
         IdentifierNode* id_node = node->m_variable;
-        ASTBase::NumType var_tp = getVariableType(id_node->m_name, value_tp);
+        ASTBase::NumType var_tp = getVariableType(id_node->m_name);
 
         if (value_tp != var_tp) {
             TypeCheck_ERR("Type mismatch in assignment. ", TypeCheck_TYPE_2_STR(value_tp), "!=", TypeCheck_TYPE_2_STR(var_tp));
@@ -261,16 +290,18 @@ namespace cal {
     }
 
 
-    ASTBase::NumType TypeChecker::getVariableType(const std::string& name, ASTBase::NumType maybe_type)
+    ASTBase::NumType TypeChecker::getVariableType(const std::string& name)
     {
         auto it = m_variables.find(name);
         if (it != m_variables.end()) {
             return it->second;
         }
         else {
-            LogDebug("[TypeChecker] Insert variable ", name, " Type ", TypeCheck_TYPE_2_STR(maybe_type));
-            m_variables.insert(std::make_pair(name, maybe_type));
-            return maybe_type;
+            // LogDebug("[TypeChecker] Insert variable ", name, " Type ", TypeCheck_TYPE_2_STR(maybe_type));
+            // m_variables.insert(std::make_pair(name, maybe_type));
+            // return maybe_type;
+            TypeCheck_ERR("Can't resolve this variable : ", name);
+            return ASTBase::ERR_TP;
         }
     }
 

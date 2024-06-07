@@ -23,11 +23,12 @@ namespace cal {
         
         void checkNumber(NumberNode* node);
         ASTBase::NumType checkOperator(OpNode* node);
+        void checkVariableDeclear(VariableDeclearNode* node);
         void checkAssignment(AssignmentNode* node);
         void checkFunctionCall(FunctionCallNode* node);
         void checkIdNode(IdentifierNode* node);
 
-        ASTBase::NumType getVariableType(const std::string& name, ASTBase::NumType maybe_type);
+        ASTBase::NumType getVariableType(const std::string& name);
         std::vector<ASTBase::NumType> getFunctionParamTypes(const std::string& name); 
         ASTBase::NumType getFunctionReturnType(const std::string& name); 
         
@@ -40,10 +41,17 @@ namespace cal {
             ASTBase::NumType m_return_type;
         };
 
+        struct UserDefineType {
+            //TODO  
+        };
+
         Parser& m_parser;
         ASTBase* m_ast_root;
 
         std::unordered_map<std::string, ASTBase::NumType> m_variables;
         std::unordered_map<std::string, FuncDeclear> m_functionDeclars;
+
+        //TODO
+        std::unordered_map<std::string, UserDefineType> m_userdefined_types;
     };
 }

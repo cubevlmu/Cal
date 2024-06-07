@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.15)
 
-project(CAL LANGUAGES CXX)
+project(CAL)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
@@ -20,6 +20,8 @@ set(headerList
 )
 
 InstallSpdlog(includeList linkList)
+InstallJsoncpp(includeList linkList)
+# InstallLLVM(includeList linkList)
 
 file(GLOB_RECURSE src
     "src/*.m"
