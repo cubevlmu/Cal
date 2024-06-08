@@ -10,6 +10,7 @@ namespace cal {
 
     class CalByteCode
     {
+        friend class VM;
     public:
         struct Instruction {
             OpCodes code;

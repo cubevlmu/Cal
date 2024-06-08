@@ -40,7 +40,6 @@ namespace cal {
         static bool writeOutputToFile(const Json::Value& val, const std::string& file);
     };
 
-
     class NumberNode : public ASTBase
     {
     public:

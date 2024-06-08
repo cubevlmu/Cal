@@ -17,6 +17,7 @@ namespace cal {
         void debugPrint();
 
         void registerFunctionDeclear(const std::string& name, std::initializer_list<ASTBase::NumType> arguments, ASTBase::NumType return_type = ASTBase::NumType::VOID);
+        void registerFunctionDeclear(const std::string& name, std::vector<ASTBase::NumType> arguments, ASTBase::NumType return_type = ASTBase::NumType::VOID);
 
     private:
         void checkAST(ASTBase* node);
@@ -27,6 +28,7 @@ namespace cal {
         void checkAssignment(AssignmentNode* node);
         void checkFunctionCall(FunctionCallNode* node);
         void checkIdNode(IdentifierNode* node);
+        void checkFunctionDeclear(FunctionNode* node);
 
         ASTBase::NumType getVariableType(const std::string& name);
         std::vector<ASTBase::NumType> getFunctionParamTypes(const std::string& name); 

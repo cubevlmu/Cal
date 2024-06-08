@@ -41,9 +41,10 @@ int main(int argc, char** argv) {
             b : const i32,
             c : internal i32[],
         }
+        args : string[]
         */
         
-        fun main(args : string[]) {
+        fun main() {
             var c : i32;
             var a = 0;
             var b : i32 = 10;
