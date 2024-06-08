@@ -20,6 +20,7 @@ set(headerList
 )
 
 InstallSpdlog(includeList linkList)
+InstallXXHash(includeList linkList)
 InstallJsoncpp(includeList linkList)
 # InstallLLVM(includeList linkList)
 
@@ -38,6 +39,11 @@ target_include_directories(Test PRIVATE
 )
 target_link_libraries(Test PRIVATE 
     ${linkList}
+
+    "-framework Foundation"
+    "-framework Cocoa"
+    "-framework IOKit"
+    "-ObjC"
 )
 
 target_compile_definitions(Test PRIVATE 

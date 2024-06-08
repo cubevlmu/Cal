@@ -4,6 +4,7 @@
 #include "base/Logger.hpp"
 #include "base/Utils.hpp"
 #include "cal/ast/ASTNodes.hpp"
+#include <initializer_list>
 #include <utility>
 
 namespace cal {
@@ -73,6 +74,24 @@ namespace cal {
             TypeCheck_ERR("Ast root type is not code block, failed");
             return;
         }
+        BlockNode* node = static_cast<BlockNode*>(m_ast_root);
+        for (auto* node : node->m_statements)
+        {
+            switch (node->getType())
+            {
+            case ASTBase::NodeType::NODE_FUNC:
+            {
+                checkFunctionDeclear(static_cast<FunctionNode*>(node));
+                break;
+            }
+            case ASTBase::NodeType::NODE_VAR_DECLEAR:
+                checkVariableDeclear(static_cast<VariableDeclearNode*>(node));
+                break;
+            default:
+                TypeCheck_ERR("You can only write function or variable declear at global scope");
+                return;
+            }
+        }
         //m_variables.clear();
         //m_functionDeclars.clear();
 
@@ -99,9 +118,15 @@ namespace cal {
             LogDebug("\t [Name] ", func.first, " [Arguments] { ", EndAppender(), "} [Type] ", TypeCheck_TYPE_2_STR(func.second.m_return_type));
         }
     }
-
+    
 
     void TypeChecker::registerFunctionDeclear(const std::string& name, std::initializer_list<ASTBase::NumType> arguments, ASTBase::NumType return_type)
+    {
+        registerFunctionDeclear(name, std::vector<ASTBase::NumType>(arguments.begin(), arguments.end()), return_type);   
+    }
+    
+    
+    void TypeChecker::registerFunctionDeclear(const std::string& name, std::vector<ASTBase::NumType> arguments, ASTBase::NumType return_type)
     {
         auto it = m_functionDeclars.find(name);
         if (it != m_functionDeclars.end()) {
@@ -199,22 +224,23 @@ namespace cal {
     {
         if (node->m_initial_value == nullptr && node->m_variable_type == ASTBase::NumType::VariableReturn)
             TypeCheck_ERR("Expected type declear after the variable name");
-        
+
         if (node->m_initial_value != nullptr) {
             checkAST(node->m_initial_value);
         }
 
         if (node->m_variable_type == ASTBase::NumType::VariableReturn) {
             node->m_variable_type = node->m_initial_value->getNumType();
-            if(node->m_variable_type == ASTBase::NumType::ERR_TP)
+            if (node->m_variable_type == ASTBase::NumType::ERR_TP)
                 TypeCheck_ERR("Unexpected initial value for this variable. Initial value's type is invalid");
-        } else if (node->m_variable_type == ASTBase::NumType::USER_DEFINED) {
+        }
+        else if (node->m_variable_type == ASTBase::NumType::USER_DEFINED) {
             //TODO
         }
 
         if (hasThisVariable(node->m_name->m_name))
             TypeCheck_ERR("Unexpected declear before this variable declear (samename)");
-        
+
         m_variables.insert(std::make_pair(node->m_name->m_name, node->m_variable_type));
     }
 
@@ -279,14 +305,41 @@ namespace cal {
         switch (node->m_type) {
         case IdentifierNode::FuncCallArg:
         case IdentifierNode::Variable:
-            if(!hasThisVariable(node->m_name))
+            if (!hasThisVariable(node->m_name))
                 TypeCheck_ERR("Variable not found -> ", node->m_name);
             break;
         case IdentifierNode::Function:
-            if(!hasThisFunction(node->m_name))
+            if (!hasThisFunction(node->m_name))
                 TypeCheck_ERR("Variable not found -> ", node->m_name);
             break;
         }
+    }
+
+
+    void TypeChecker::checkFunctionDeclear(FunctionNode* node) {
+        if (hasThisFunction(node->m_name))
+            TypeCheck_ERR("Function has been declear before this declear");
+
+        std::vector<ASTBase::NumType> m_arg_types;
+        for (auto* arg : node->m_args) {
+            if (arg->m_type == ASTBase::ERR_TP)
+                TypeCheck_ERR("Function argument's type can't be invalid");
+            else if (arg->m_type == ASTBase::USER_DEFINED) {
+                //TODO check user defined
+            }
+            m_arg_types.push_back(arg->getNumType());
+        }
+
+
+        if (node->m_returnType == ASTBase::ERR_TP)
+            TypeCheck_ERR("Function return type can't be invalid");
+        else if (node->m_returnType == ASTBase::USER_DEFINED) {
+            //TODO check user defined
+        }
+
+        checkAST(node->m_func_content);
+
+        registerFunctionDeclear(node->m_name, m_arg_types, node->m_returnType);
     }
 
 
