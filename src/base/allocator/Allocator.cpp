@@ -1,9 +1,8 @@
 #include "Allocators.hpp"
 
 #include "base/math/Math.hpp"
-#include "system/Sys.hpp"
-
 #include "system/StdLibExt.hpp"
+#include "system/Sys.hpp"
 
 namespace cal {
 
@@ -16,7 +15,7 @@ namespace cal {
 #else
         size_t tmp = (n - 1) >> 2;
         auto res = tmp == 0 ? 0 : 31 - __builtin_clz(tmp);
-        ASSERT(res <= sizeof(((Allocator*)nullptr)->m_free_lists));
+        ASSERT(res <= lengthOf(((Allocator*)nullptr)->m_free_lists));
         return res;
 #endif
     }

@@ -1,8 +1,8 @@
 #ifdef __MACH__
 
-#include "base/allocator/IAllocator.hpp"
 #include "base/threading/Thread.hpp"
 #include "base/threading/Sync.hpp"
+#include "base/allocator/IAllocator.hpp"
 
 #include <pthread.h>
 #include <mach/mach.h>
@@ -23,11 +23,12 @@ namespace cal {
         ConditionVariable cv;
     };
 
+
     static void* threadFunction(void* ptr)
     {
         struct ThreadImpl* impl = reinterpret_cast<ThreadImpl*>(ptr);
         pthread_setname_np(impl->thread_name);
-        //TODO profiler::setThreadName(impl->thread_name);
+        //profiler::setThreadName(impl->thread_name);
         u32 ret = 0xffffFFFF;
         if (!impl->force_exit) ret = impl->owner->run();
         impl->exited = true;
@@ -35,6 +36,7 @@ namespace cal {
 
         return nullptr;
     }
+
 
     Thread::Thread(IAllocator& allocator)
     {
@@ -86,12 +88,12 @@ namespace cal {
 
     void Thread::setAffinityMask(u64 affinity_mask)
     {
-        thread_affinity_policy_data_t policy;
-        policy.affinity_tag = (integer_t)affinity_mask;
+        // thread_affinity_policy_data_t policy;
+        // policy.affinity_tag = (integer_t)affinity_mask;
 
-        thread_port_t threadport = pthread_mach_thread_np(m_implementation->handle);
+        // thread_port_t threadport = pthread_mach_thread_np(m_implementation->handle);
 
-        thread_policy_set(threadport, THREAD_AFFINITY_POLICY, (thread_policy_t)&policy, THREAD_AFFINITY_POLICY_COUNT);
+        // thread_policy_set(threadport, THREAD_AFFINITY_POLICY, (thread_policy_t)&policy, THREAD_AFFINITY_POLICY_COUNT);
 
         // cpu_set_t set;
         // CPU_ZERO(&set);
@@ -104,22 +106,24 @@ namespace cal {
         // }
         // pthread_setaffinity_np(m_implementation->handle, sizeof(set), &set);
     }
+    
 
     bool Thread::isRunning() const
     {
         return m_implementation->is_running;
     }
 
+
     bool Thread::isFinished() const
     {
         return m_implementation->exited;
     }
 
+
     IAllocator& Thread::getAllocator()
     {
         return m_implementation->allocator;
     }
-
 }
 
 #endif

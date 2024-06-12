@@ -2,6 +2,7 @@
 
 #include "IAllocator.hpp"
 #include "base/threading/SyncMutex.hpp"
+#include "globals.hpp"
 
 namespace cal {
     

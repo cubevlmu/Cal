@@ -10,6 +10,7 @@ namespace cal {
         ASSERT(platform::getMemPageAlignment() % PAGE_SIZE == 0);
     }
 
+
     PageAllocator::~PageAllocator()
     {
         ASSERT(allocated_count == 0);

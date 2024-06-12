@@ -1,7 +1,6 @@
 #include "LinearAllocator.hpp"
-
-#include "base/threading/Atomic.hpp"
 #include "system/Sys.hpp"
+#include "base/threading/Atomic.hpp"
 #include "base/math/Math.hpp"
 
 namespace cal {

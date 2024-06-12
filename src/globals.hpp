@@ -49,6 +49,11 @@ namespace cal {
 
     typedef unsigned char cbyte;
 
+    template <typename T, u32 count> constexpr u32 lengthOf(const T(&)[count])
+    {
+        return count;
+    };
+
 #ifdef cb_winnt
 #define cb_debug_break() __debugbreak()
 #define cb_inline __forceinline

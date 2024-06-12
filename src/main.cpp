@@ -1,9 +1,15 @@
 #include <iostream>
 
 #include "base/Logger.hpp"
-#include "cal/Lexer.hpp"
-#include "cal/Parser.hpp"
-#include "cal/TypeChecker.hpp"
+
+#include "base/threading/Thread.hpp"
+#include "base/allocator/Allocators.hpp"
+#include "base/types/Array.hpp"
+#include "system/SysThreading.hpp"
+
+// #include "cal/Lexer.hpp"
+// #include "cal/Parser.hpp"
+// #include "cal/TypeChecker.hpp"
 // #include "cal/CodeGenerator.hpp"
 // #include "cal/bytecode/ByteCode.hpp"
 
@@ -21,6 +27,16 @@ int main(int argc, char** argv) {
     else {
         // Go to command line mode
     }
+
+    static cal::Allocator alloc {};
+
+    cal::Array<cal::i32> ar { alloc };
+    ar.push(10);
+    ar.push(20);
+
+    LogInfo("Array 0 : ", ar[0]);
+    LogInfo("Array 1 : ", ar[1]);
+
 
     // cal::CalBytecode code {};
     // code.read("test.calcls");
@@ -57,13 +73,13 @@ int main(int argc, char** argv) {
         }
     )";
 
-    cal::Lexer lex(test_source);
-    lex.analyze();
-    lex.debugPrint();
+    // cal::Lexer lex(test_source);
+    // lex.analyze();
+    // lex.debugPrint();
 
-    cal::Parser parser(lex);
-    parser.parse();
-    parser.debugPrint();
+    // cal::Parser parser(lex);
+    // parser.parse();
+    // parser.debugPrint();
 
     // cal::TypeChecker type_checker(parser);
 
