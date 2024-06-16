@@ -1,11 +1,14 @@
-#include "globals.hpp"
+#ifdef __MACH__
 
+#include "globals.hpp"
 #include <alloca.h>
 #include <malloc/_malloc.h>
+
+#undef __API_DEPRECATED
+#define __API_DEPRECATED(...)
 #define _XOPEN_SOURCE
 #include <ucontext.h>
-
-#ifdef __MACH__
+#undef __API_DEPRECATED
 
 #include "base/threading/Fiber.hpp"
 
@@ -17,9 +20,11 @@ namespace cal::fiber {
 
     void initThread(FiberProc proc, Handle* out)
     {
-        *out = create(64 * 1024, proc, nullptr); //TODO CHECK UP
+        *out = create(64 * 1024, proc, nullptr);
+
         getcontext(&g_finisher);
         out->uc_link = &g_finisher;
+        
         switchTo(&g_finisher, *out);
     }
 
@@ -34,11 +39,13 @@ namespace cal::fiber {
         makecontext(&fib, reinterpret_cast<void(*)(void)>(proc), 1, &parameter);
         return fib;
     }
+    
 
     bool isValid(Handle handle)
     {
         return handle.uc_stack.ss_sp != nullptr;
     }
+
 
     void destroy(Handle fiber)
     {
@@ -48,14 +55,9 @@ namespace cal::fiber {
 
     void switchTo(Handle* prev, Handle fiber)
     {
-        //todo profiler::beforeFiberSwitch();
-        try {
-            if(fiber.uc_onstack < 0) return;
-            swapcontext(prev, &fiber);
-        }
-        catch (...) {
-
-        }
+        // profiler::beforeFiberSwitch();
+        if (fiber.uc_onstack < 0) return;
+        swapcontext(prev, &fiber);
     }
 
 

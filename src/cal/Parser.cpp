@@ -2,15 +2,21 @@
 
 #include "Lexer.hpp"
 #include "base/Logger.hpp"
-#include "cal/ast/ASTNodes.hpp"
 #include "json/json.h"
+#include "base/allocator/IAllocator.hpp"
+#include "cal/ast/ASTAssignmentNode.hpp"
+#include "cal/ast/ASTBlockNode.hpp"
+#include "cal/ast/ASTFuncDefNode.hpp"
+#include "cal/ast/ASTNumberNode.hpp"
+#include "cal/ast/ASTOPNode.hpp"
+#include "cal/ast/ASTVarDefNode.hpp"
 
 namespace cal {
 
 #define PARSE_ERR(...) do { LogError(__VA_ARGS__);ASSERT(false); } while (false)
 
-    Parser::Parser(Lexer& lexer)
-        : m_lex(lexer)
+    Parser::Parser(Lexer& lexer, IAllocator& alloc)
+        : m_lex(lexer), m_alloc(alloc)
     {
 
     }
@@ -27,11 +33,11 @@ namespace cal {
         if (m_root == nullptr)
             return;
 
-        ASTBase::writeOutputToFile(m_root->buildOutput(), "ParserResult.json");
+        ASTNodeBase::writeOutputToFile(m_root->buildOutput(), "ParserResult.json");
 
         LogDebug("[ParserResult] Parsed result:");
         LogDebug("\t In file ParserResult.json");
-        LogDebug("\t", ASTBase::buildOutputFromJson(m_root->buildOutput()));
+        LogDebug("\t", ASTNodeBase::buildOutputFromJson(m_root->buildOutput()));
     }
 
 
@@ -64,18 +70,17 @@ namespace cal {
 
 
 
-    ASTBase* Parser::parseStatements()
+    ASTNodeBase* Parser::parseStatements()
     {
-        // 解析多个语句
-        std::vector<ASTBase*> statements;
+        ASTBlockNode* node = CAL_NEW(m_alloc, ASTBlockNode)(m_alloc);
         while (m_current < m_tokens.size()) {
-            statements.push_back(parseStatement());
+            node->addNode(parseStatement());
         }
-        return new BlockNode(statements);
+        return node;
     }
 
 
-    ASTBase* Parser::parseVariableDeclear(bool isConst)
+    ASTNodeBase* Parser::parseVariableDeclear(bool isConst)
     {
         Lexer::Token tk = m_tokens[m_current];
         if (tk.tk_type != Lexer::Token::TK_IDENTIFIER)
@@ -85,13 +90,13 @@ namespace cal {
         m_current++;
         Lexer::Token vv = m_tokens[m_current];
 
-        ASTBase::NumType var_type = ASTBase::NumType::ERR_TP;
-        ASTBase* initial_value = nullptr;
+        ASTNodeBase::NumType var_type = ASTNodeBase::NumType::ERR_TP;
+        ASTNodeBase* initial_value = nullptr;
 
         if (vv.tk_type == Lexer::Token::TK_TYPE) {
-            var_type = ASTBase::parseNumTypeText(vv.tk_item);
-            if (var_type == ASTBase::NumType::ERR_TP)
-                var_type = ASTBase::NumType::USER_DEFINED; // predict
+            var_type = ASTNodeBase::parseNumTypeText(vv.tk_item);
+            if (var_type == ASTNodeBase::NumType::ERR_TP)
+                var_type = ASTNodeBase::NumType::USER_DEFINED; // predict
 
             m_current++;
             if (m_tokens[m_current].tk_type != Lexer::Token::TokenType::TK_SEMICOLON) {
@@ -99,7 +104,7 @@ namespace cal {
             }
         }
         else if (vv.tk_type != Lexer::Token::TK_SEMICOLON) {
-            var_type = ASTBase::NumType::VariableReturn; //TODO check it
+            var_type = ASTNodeBase::NumType::VariableReturn; //TODO check it
             initial_value = parseExpression();
         }
         else {
@@ -113,18 +118,17 @@ namespace cal {
             m_current++;
         }
 
-        if (var_type == ASTBase::NumType::ERR_TP)
+        if (var_type == ASTNodeBase::NumType::ERR_TP)
             PARSE_ERR("variable declear need to have a type");
 
-        return new VariableDeclearNode(
-            new IdentifierNode(IdentifierNode::Type::Variable, var_name),
-            var_type,
-            initial_value
-        );
+        ASTVarDefNode* node = CAL_NEW(m_alloc, ASTVarDefNode)(m_alloc);
+        node->set(var_name, /*TODO vartype */nullptr, initial_value);
+
+        return node;
     }
 
 
-    ASTBase* Parser::parseStatement()
+    ASTNodeBase* Parser::parseStatement()
     {
         if (match(Lexer::Token::TK_IDENTIFIER)) {
             return parseAssignment();
@@ -151,13 +155,15 @@ namespace cal {
     }
 
 
-    ASTBase* Parser::parseAssignment()
+    ASTNodeBase* Parser::parseAssignment()
     {
         Lexer::Token variable = m_tokens[m_current - 1];
         if (match(Lexer::Token::TK_EQUAL)) {
-            ASTBase* value = parseExpression();
+            ASTNodeBase* value = parseExpression();
             if (match(Lexer::Token::TK_SEMICOLON)) {
-                return new AssignmentNode(new IdentifierNode(IdentifierNode::Type::Variable, variable.tk_item), value);
+                ASTAssignmentNode* node = CAL_NEW(m_alloc, ASTAssignmentNode)(m_alloc);
+                node->set(variable.tk_item, value);
+                return node;
             }
             else {
                 PARSE_ERR("Expected ';' after assignment");
@@ -168,7 +174,7 @@ namespace cal {
     }
 
 
-    ASTBase* Parser::parseFunctionCall()
+    ASTNodeBase* Parser::parseFunctionCall()
     {
         Lexer::Token function = m_tokens[m_current - 1];
         if (m_tokens[m_current].tk_type != Lexer::Token::TokenType::TK_LEFT_PAREN)
@@ -176,7 +182,7 @@ namespace cal {
         advance();
 
 
-        std::vector<ASTBase*> args;
+        std::vector<ASTNodeBase*> args;
         while (!match(Lexer::Token::TK_SEMICOLON) && !match(Lexer::Token::TK_RIGHT_PAREN)) {
             // here is the smarter way dealing this
             if (peek().tk_type == Lexer::Token::TK_COMMA)
@@ -187,50 +193,63 @@ namespace cal {
         if (peek().tk_type == Lexer::Token::TK_SEMICOLON)
             advance();
 
+
         return new FunctionCallNode(new IdentifierNode(IdentifierNode::Function, function.tk_item), args);
     }
 
 
-    ASTBase* Parser::parseExpression()
+    ASTNodeBase* Parser::parseExpression()
     {
         return parseTerm();
     }
 
 
-    ASTBase* Parser::parseTerm()
+    ASTNodeBase* Parser::parseTerm()
     {
-        ASTBase* node = parseFactor();
+        ASTNodeBase* node = parseFactor();
         while (match(Lexer::Token::TK_PLUS)) {
-            ASTBase* right = parseFactor();
-            node = new OpNode(OpNode::Plus, node, right);
+            ASTNodeBase* right = parseFactor();
+
+            ASTOPNode* op = CAL_NEW(m_alloc, ASTOPNode)(m_alloc);
+            op->set(ASTOPNode::OperatorType::Add, node, right);
+            
+            node = op;
         }
         return node;
     }
 
 
-    ASTBase* Parser::parseFactor()
+    ASTNodeBase* Parser::parseFactor()
     {
-        ASTBase* node = parsePrimary();
+        ASTNodeBase* node = parsePrimary();
         while (match(Lexer::Token::TK_MULTIPLE)) {
-            ASTBase* right = parsePrimary();
-            node = new OpNode(OpNode::Multi, node, right);
+            ASTNodeBase* right = parsePrimary();
+            
+            ASTOPNode* op = CAL_NEW(m_alloc, ASTOPNode)(m_alloc);
+            op->set(ASTOPNode::OperatorType::Multiply, node, right);
+
+            node = op;
         }
         return node;
     }
 
 
-    ASTBase* Parser::parsePrimary()
+    ASTNodeBase* Parser::parsePrimary()
     {
         if (match(Lexer::Token::TK_NUMBER)) {
             Lexer::Token number = m_tokens[m_current - 1];
-            return new NumberNode(number.tk_item);
+
+            ASTNumberNode* num = CAL_NEW(m_alloc, ASTNumberNode)(m_alloc);
+            num->set(number.tk_item);
+
+            return num;
         }
         else if (match(Lexer::Token::TK_IDENTIFIER)) {
             Lexer::Token id = m_tokens[m_current - 1];
-            return new IdentifierNode(IdentifierNode::Type::Variable, id.tk_item);
+            //TODO return new IdentifierNode(IdentifierNode::Type::Variable, id.tk_item);
         }
         else if (match(Lexer::Token::TK_LEFT_PAREN)) {
-            ASTBase* expr = parseExpression();
+            ASTNodeBase* expr = parseExpression();
             if (match(Lexer::Token::TK_RIGHT_PAREN)) {
                 return expr;
             }
@@ -251,12 +270,13 @@ namespace cal {
     }
 
 
-    ASTBase* Parser::parseFunctionDeclear() {
+    ASTNodeBase* Parser::parseFunctionDeclear() {
         Lexer::Token name = advance();
         if (name.tk_type != Lexer::Token::TK_FUNC_NAME)
             PARSE_ERR("Expected name after a function declear, but : ", name.tk_item);
 
-        std::vector<FunctionArgNode*> arg_nodes{};
+        ASTFuncDefNode* node = CAL_NEW(m_alloc, ASTFuncDefNode)(m_alloc);
+
 
         while (m_tokens[m_current].tk_type != Lexer::Token::TK_FUNC_RETURN) {
             Lexer::Token tk = advance();
@@ -267,45 +287,49 @@ namespace cal {
             Lexer::Token tk_type = advance();
             if (tk_type.tk_type != Lexer::Token::TK_TYPE)
                 PARSE_ERR("Function arguments should be typed, but : ", tk_type.tk_item);
-            ASTBase::NumType arg_type = ASTBase::parseNumTypeText(tk_type.tk_item);
-
-            arg_nodes.push_back(new FunctionArgNode(arg_name, arg_type));
+            
+            ASTFuncArgNode* argNode = CAL_NEW(m_alloc, ASTFuncArgNode)(m_alloc);
+            argNode->set(arg_name, nullptr); //TODO
+            
+            node->addParams(argNode);
         }
 
         Lexer::Token endTk = advance();
         std::string type_str = endTk.tk_item;
         if (endTk.tk_type != Lexer::Token::TK_FUNC_RETURN)
             PARSE_ERR("function should provide a return type");
-        ASTBase::NumType returnType = ASTBase::parseNumTypeText(type_str);
+        // ASTNodeBase::NumType returnType = ASTNodeBase::parseNumTypeText(type_str);
         // Lexer::Token blockStart = advance();
 
         // if (blockStart.tk_type != Lexer::Token::TK_LEFT_BRACES)
         //     PARSE_ERR("Function body should be start with '{'");
+        node->setName(name.tk_item);
+        node->setBody((ASTBlockNode*)parseBlock());
+        node->setRetType(nullptr); //TODO
 
-        FunctionNode* node = new FunctionNode(name.tk_item, arg_nodes, returnType, (BlockNode*)parseBlock());
         return node;
     }
 
 
-    ASTBase* Parser::parseBlock() {
+    ASTNodeBase* Parser::parseBlock() {
         if (m_tokens[m_current].tk_type != Lexer::Token::TK_LEFT_BRACES)
             PARSE_ERR("Block should be start with '{");
         advance();
 
-        std::vector<ASTBase*> statements;
+        ASTBlockNode* block = CAL_NEW(m_alloc, ASTBlockNode)(m_alloc);
 
         while (m_tokens[m_current].tk_type != Lexer::Token::TK_RIGHT_BRACES) {
-            statements.push_back(parseStatement());
+            block->addNode(parseStatement());
         }
         advance();
 
-        return new BlockNode(statements);
+        return block;
     }
 
 
-    ASTBase* Parser::parseReturn() {
+    ASTNodeBase* Parser::parseReturn() {
 
-        ASTBase* base = nullptr;
+        ASTNodeBase* base = nullptr;
         while (!match(Lexer::Token::TK_SEMICOLON)) {
             // here is the smarter way dealing this
             if(base != nullptr) {

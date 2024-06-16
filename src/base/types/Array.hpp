@@ -6,7 +6,7 @@
 
 namespace cal {
 
-    template <typename T> 
+    template <typename T>
     struct Array {
         explicit Array(IAllocator& allocator)
             : m_allocator(allocator)
@@ -56,7 +56,7 @@ namespace cal {
         }
 
 
-        template <typename Comparator> 
+        template <typename Comparator>
         void removeDuplicates(Comparator equals) {
             if (m_size == 0) return;
             for (u32 i = 0; i < m_size - 1; ++i) {
@@ -255,7 +255,7 @@ namespace cal {
         }
 
 
-        template <typename... Params> 
+        template <typename... Params>
         T& emplace(Params&&... params) {
             if (m_size == m_capacity) grow();
             new (NewPlaceholder(), (T*)(m_data + m_size)) T(static_cast<Params&&>(params)...);
@@ -372,6 +372,19 @@ namespace cal {
 
         u32 capacity() const { return m_capacity; }
         IAllocator& getAllocator() const { return m_allocator; }
+
+
+        bool operator ==(const Array<T>& obj) {
+            // if (obj.m_size != m_size) return false;
+            // for (int i = 0; i < m_size; i++) {
+            //     T& item = this[i];
+            //     T& dest = obj[i];
+            //     if (item != dest)
+            //         return false;
+            // }
+            // return true;
+            return false;
+        }
 
     protected:
         void grow() { reserve(m_capacity < 4 ? 4 : m_capacity + m_capacity / 2); }

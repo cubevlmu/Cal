@@ -1,7 +1,7 @@
 #pragma once
 
 #include "cal/Lexer.hpp"
-#include "cal/ast/ASTNodes.hpp"
+#include "cal/ast/ASTNodeBase.hpp"
 #include <cstddef>
 
 namespace cal {
@@ -17,7 +17,7 @@ namespace cal {
         friend class LLVMCodeGenerator;
         
     public:
-        Parser(Lexer& lexer);
+        Parser(Lexer& lexer, IAllocator& alloc);
 
         void parse();
         void debugPrint();
@@ -27,25 +27,26 @@ namespace cal {
         Lexer::Token advance();
         bool match(Lexer::Token::TokenType type);
 
-        ASTBase* parseStatements();
-        ASTBase* parseVariableDeclear(bool isConst);
-        ASTBase* parseStatement();
-        ASTBase* parseAssignment();
-        ASTBase* parseFunctionCall();
-        ASTBase* parseExpression();
-        ASTBase* parseTerm();
-        ASTBase* parseFactor();
-        ASTBase* parsePrimary();
-        ASTBase* parseFunctionDeclear();
-        ASTBase* parseBlock();
-        ASTBase* parseReturn();
+        ASTNodeBase* parseStatements();
+        ASTNodeBase* parseVariableDeclear(bool isConst);
+        ASTNodeBase* parseStatement();
+        ASTNodeBase* parseAssignment();
+        ASTNodeBase* parseFunctionCall();
+        ASTNodeBase* parseExpression();
+        ASTNodeBase* parseTerm();
+        ASTNodeBase* parseFactor();
+        ASTNodeBase* parsePrimary();
+        ASTNodeBase* parseFunctionDeclear();
+        ASTNodeBase* parseBlock();
+        ASTNodeBase* parseReturn();
 
     private:
         Lexer& m_lex;
+        IAllocator& m_alloc;
 
         std::vector<Lexer::Token> m_tokens;
         size_t m_current;
 
-        ASTBase* m_root;
+        ASTNodeBase* m_root;
     };
 }

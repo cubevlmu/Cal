@@ -1,6 +1,5 @@
 #include "Allocators.hpp"
 
-
 namespace cal {
 
     u32 sizeToBin(size_t n) {
@@ -12,7 +11,7 @@ namespace cal {
 #else
         size_t tmp = (n - 1) >> 2;
         auto res = tmp == 0 ? 0 : 31 - __builtin_clz(tmp);
-        ASSERT(res <= sizeof(((Allocator*)nullptr)->m_free_lists)); //TODO
+        ASSERT(res <= lengthOf(((Allocator*)nullptr)->m_free_lists));
         return res;
 #endif
     }

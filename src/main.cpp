@@ -1,9 +1,14 @@
 #include <iostream>
 
 #include "base/Logger.hpp"
-#include "cal/Lexer.hpp"
-#include "cal/Parser.hpp"
-#include "cal/TypeChecker.hpp"
+
+#include "base/allocator/Allocators.hpp"
+#include "base/types/Array.hpp"
+#include "cal/ast/ASTTypeNode.hpp"
+
+// #include "cal/Lexer.hpp"
+// #include "cal/Parser.hpp"
+// #include "cal/TypeChecker.hpp"
 // #include "cal/CodeGenerator.hpp"
 // #include "cal/bytecode/ByteCode.hpp"
 
@@ -22,6 +27,19 @@ int main(int argc, char** argv) {
         // Go to command line mode
     }
 
+    static cal::Allocator alloc {};
+
+    cal::Array<cal::i32> ar { alloc };
+    ar.push(10);
+    ar.push(20);
+
+    LogInfo("Array 0 : ", ar[0]);
+    LogInfo("Array 1 : ", ar[1]);
+
+    auto* ptr = CAL_NEW(alloc, cal::ASTTypeNode)(alloc);
+    ptr->setType("i32[10]");
+    LogInfo(ptr->toString());
+
     // cal::CalBytecode code {};
     // code.read("test.calcls");
     // code.debugPrint();
@@ -39,7 +57,7 @@ int main(int argc, char** argv) {
         struct test {
             a : i32,
             b : const i32,
-            c : internal i32[],
+            c : internal i32[1],
         }
         args : string[]
         */
@@ -57,13 +75,13 @@ int main(int argc, char** argv) {
         }
     )";
 
-    cal::Lexer lex(test_source);
-    lex.analyze();
-    lex.debugPrint();
+    // cal::Lexer lex(test_source);
+    // lex.analyze();
+    // lex.debugPrint();
 
-    cal::Parser parser(lex);
-    parser.parse();
-    parser.debugPrint();
+    // cal::Parser parser(lex);
+    // parser.parse();
+    // parser.debugPrint();
 
     // cal::TypeChecker type_checker(parser);
 
