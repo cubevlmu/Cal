@@ -2,10 +2,9 @@
 
 #include "base/Logger.hpp"
 
-#include "base/threading/Thread.hpp"
 #include "base/allocator/Allocators.hpp"
 #include "base/types/Array.hpp"
-#include "system/SysThreading.hpp"
+#include "cal/ast/ASTTypeNode.hpp"
 
 // #include "cal/Lexer.hpp"
 // #include "cal/Parser.hpp"
@@ -37,6 +36,9 @@ int main(int argc, char** argv) {
     LogInfo("Array 0 : ", ar[0]);
     LogInfo("Array 1 : ", ar[1]);
 
+    auto* ptr = CAL_NEW(alloc, cal::ASTTypeNode)(alloc);
+    ptr->setType("i32[10]");
+    LogInfo(ptr->toString());
 
     // cal::CalBytecode code {};
     // code.read("test.calcls");
@@ -55,7 +57,7 @@ int main(int argc, char** argv) {
         struct test {
             a : i32,
             b : const i32,
-            c : internal i32[],
+            c : internal i32[1],
         }
         args : string[]
         */
