@@ -18,7 +18,7 @@ namespace cal {
         const char** it = std::find(begin, end, type);
 
         if (it != end) {
-            return std::distance(begin, it); 
+            return std::distance(begin, it);
         }
         else {
             return -1; // fallback index
@@ -105,14 +105,14 @@ namespace cal {
             }
         } while (pos++ < type_Str.size());
 
+        m_raw_type = type_Str;
         if (isArray) {
             if (type_Str[type_Str.size() - 1] != ']')
-                throw new std::runtime_error("array type has no end tag : ']'");
+                throw std::runtime_error("array type has no end tag : ']'");
             m_is_array = isArray;
+            m_raw_type = m_raw_type.erase(m_raw_type.find("["), m_raw_type.find("]"));
         }
 
-        m_raw_type = type_Str;
-        m_raw_type = m_raw_type.erase(m_raw_type.find("["), m_raw_type.find("]"));
 
         std::string r_a_type = m_raw_type;
         std::transform(r_a_type.begin(), r_a_type.end(), r_a_type.begin(), [](unsigned char c) { return std::tolower(c); });
@@ -121,10 +121,18 @@ namespace cal {
 
         if (r_result == -1) {
             m_state = TypeState::defined;
-        } else {
+        }
+        else {
             m_state = (TypeState)r_result;
         }
 
+        m_is_verified = true;
+    }
+
+
+    void ASTTypeNode::setType(TypeState state) {
+        m_raw_type = TypeStateStr[(int)state];
+        m_state = state;
         m_is_verified = true;
     }
 
@@ -138,15 +146,15 @@ namespace cal {
     void ASTTypeNode::clear()
     {
         m_is_verified = false;
-        m_state = none;
+        m_state = TypeState::none;
     }
 
 
-    bool ASTTypeNode::compareType(ASTTypeNode *node) {
+    bool ASTTypeNode::compareType(ASTTypeNode* node) {
         return node->m_is_array == m_is_array &&
-               node->m_is_verified == m_is_verified &&
-               node->m_raw_type == m_raw_type &&
-              //todo node->m_type_params == m_type_params &&
-               node->m_state == m_state;
+            node->m_is_verified == m_is_verified &&
+            node->m_raw_type == m_raw_type &&
+            //todo node->m_type_params == m_type_params &&
+            node->m_state == m_state;
     }
 }

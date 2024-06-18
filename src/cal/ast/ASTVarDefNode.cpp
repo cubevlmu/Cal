@@ -46,8 +46,11 @@ namespace cal {
         }
 
         m_initial_value = initial_value;
-        if (!m_initial_value->getReturnType()->compareType(m_type))
-            throw std::runtime_error("type not fit for the declear type and initial value's type");
+        if(m_initial_value == nullptr)
+            return;
+            
+        // if (!m_initial_value->getReturnType()->compareType(m_type))
+        //     throw std::runtime_error("type not fit for the declear type and initial value's type");
     }
 
 

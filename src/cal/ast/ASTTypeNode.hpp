@@ -7,7 +7,8 @@ namespace cal {
 
     class ASTTypeNode : public ASTNodeBase 
     {
-        enum TypeState {
+    public:
+        enum class TypeState {
             i32, i64, i16, i8, f32, boolean, 
             u32, u64, u16, u8, f64, null, defined, none
         };
@@ -21,6 +22,7 @@ namespace cal {
         virtual std::string toString() const override; 
 
         void setType(const std::string& type_Str);
+        void setType(TypeState state);
         bool isVerified() const;
         void clear();
 
@@ -36,6 +38,6 @@ namespace cal {
         bool m_is_array, m_is_verified;
         Array<int> m_type_params;
         
-        TypeState m_state = none;
+        TypeState m_state = TypeState::none;
     };
 }

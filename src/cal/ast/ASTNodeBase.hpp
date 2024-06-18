@@ -20,7 +20,7 @@ namespace cal {
         enum class ASTNodeTypes {
             AST_OP, AST_NUMBER, AST_TEXT, AST_IDENTIFIER,
             AST_BLOCK, AST_TYPE, AST_FUNC_DEF, AST_FUNC_ARG_DEF,
-            AST_VAR, AST_ASSIGNMENT
+            AST_VAR, AST_ASSIGNMENT, AST_FUNC_CALL, AST_FUNC_RET
         };
 
         static const char* ASTNodeTypesString[];
@@ -39,9 +39,11 @@ namespace cal {
         virtual bool grammarCheck(GrammarChecker* checker) const { return true; }
         virtual bool codeGen(CodeGenerator* generator) const { return true; }
         virtual bool optimizeSelf(CodeOptimizer* optimizer) const { return true; } 
+    
+    protected:
+        IAllocator& m_allocator;
         
     private:
-        IAllocator& m_allocator;
         ASTNodeBase* m_parent = nullptr;
     };
 }
