@@ -1,5 +1,7 @@
 #pragma once
 
+#include "base/allocator/IAllocator.hpp"
+#include "base/types/Array.hpp"
 #include <string>
 #include <vector>
 
@@ -11,7 +13,7 @@ namespace cal {
     {
         friend class Parser; 
     public:
-        Lexer(const std::string& source);
+        Lexer(const std::string& source, IAllocator& alloc);
         ~Lexer() = default;
 
         void analyze();
@@ -51,10 +53,11 @@ namespace cal {
 
         static const Token UnknownToken;
 
-        std::vector<Token> m_tokens;
+        Array<Token> m_tokens;
         std::string m_src;
         size_t m_pos;
         bool m_commentLineLock = false;
         bool m_use_multiline_comment = false;
+        IAllocator& m_alloc;
     };
 }

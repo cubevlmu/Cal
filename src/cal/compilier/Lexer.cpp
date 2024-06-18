@@ -6,7 +6,7 @@
 namespace cal {
 
 #define LEX_TK_ADD(TK_TYPE, TK_ITEM) \
-        m_tokens.push_back(Token {.tk_type = TK_TYPE, .tk_item = TK_ITEM })
+        m_tokens.push(Token {.tk_type = TK_TYPE, .tk_item = TK_ITEM })
 
 
     const char* tk_type_name[] = {
@@ -27,8 +27,8 @@ namespace cal {
     const Lexer::Token Lexer::UnknownToken = { Lexer::Token::TK_UNKNOWN, "" };
 
 
-    Lexer::Lexer(const std::string& source)
-        : m_src(source), m_pos(0)
+    Lexer::Lexer(const std::string& source, IAllocator& alloc)
+        : m_src(source), m_pos(0), m_alloc(alloc), m_tokens(alloc)
     {
         if (m_src.length() == 0) {
             LogError("[Lex] Empty source");

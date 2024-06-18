@@ -19,7 +19,17 @@ namespace cal {
 
     Json::Value ASTBlockNode::buildOutput() const
     {
+        Json::Value root(Json::ValueType::objectValue);
+        Json::Value node(Json::ValueType::arrayValue);
 
+        for(auto* item : m_nodes) {
+            node.append(item->buildOutput());
+        }
+
+        root["type"] = ASTNodeBase::ASTNodeTypesString[(i32)getType()];
+        root["node"] = node;
+
+        return root;
     }
 
 

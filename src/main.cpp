@@ -2,8 +2,10 @@
 
 #include "base/Logger.hpp"
 
-#include "base/allocator/Allocators.hpp"
+#include <base/allocator/Allocators.hpp>
 #include "base/types/Array.hpp"
+#include "cal/compilier/Lexer.hpp"
+#include "cal/compilier/Parser.hpp"
 #include "cal/ast/ASTTypeNode.hpp"
 
 // #include "cal/Lexer.hpp"
@@ -39,6 +41,7 @@ int main(int argc, char** argv) {
     auto* ptr = CAL_NEW(alloc, cal::ASTTypeNode)(alloc);
     ptr->setType("i32[10]");
     LogInfo(ptr->toString());
+    CAL_DEL(alloc, ptr);
 
     // cal::CalBytecode code {};
     // code.read("test.calcls");
@@ -75,13 +78,13 @@ int main(int argc, char** argv) {
         }
     )";
 
-    // cal::Lexer lex(test_source);
-    // lex.analyze();
-    // lex.debugPrint();
+    cal::Lexer lex(test_source, alloc);
+    lex.analyze();
+    lex.debugPrint();
 
-    // cal::Parser parser(lex);
-    // parser.parse();
-    // parser.debugPrint();
+    cal::Parser parser(lex, alloc);
+    parser.parse();
+    parser.debugPrint();
 
     // cal::TypeChecker type_checker(parser);
 

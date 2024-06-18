@@ -8,7 +8,7 @@ namespace cal {
     const char* ASTNodeBase::ASTNodeTypesString[] = {
         "AST_OP", "AST_NUMBER", "AST_TEXT", "AST_IDENTIFIER",
         "AST_BLOCK", "AST_TYPE", "AST_FUNC_DEF", "AST_FUNC_ARG_DEF",
-        "AST_VAR", "AST_ASSIGNMENT"
+        "AST_VAR", "AST_ASSIGNMENT", "AST_FUNC_CALL", "AST_FUNC_RET"
     };
 
 

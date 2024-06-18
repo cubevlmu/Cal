@@ -4,6 +4,10 @@
 #include <string>
 #include <sstream>
 
+namespace Json {
+    class Value;
+}
+
 namespace cal {
 
     inline std::string readLine() {
@@ -15,6 +19,11 @@ namespace cal {
 
     inline void waitAnyKeyToExit() {
         readLine();
+    }
+
+    namespace utils {
+        std::string buildOutputFromJson(const Json::Value& val, bool compact = true);
+        bool        writeOutputFromJson(const Json::Value& val, const std::string& fn = "ParserResult.json", bool compact = true);
     }
 
 #define BeginAppender() std::stringstream _ss

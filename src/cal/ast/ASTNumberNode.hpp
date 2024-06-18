@@ -8,7 +8,8 @@ namespace cal {
     {
     public:
         enum class NumberType {
-            non, i32, u32, i64, u64, i8, u8, i16, u16, f32, f64
+            i32, i64, i16, i8, f32, niu,
+            u32, u64, u16, u8, f64, non, niu2, niu3
         };
 
     public:
@@ -16,6 +17,7 @@ namespace cal {
         ~ASTNumberNode();
 
         virtual Json::Value buildOutput() const override;
+        virtual ASTTypeNode* getReturnType() const override;
         virtual ASTNodeTypes getType() const override
         {
             return ASTNodeTypes::AST_NUMBER;
@@ -41,7 +43,8 @@ namespace cal {
             u8 u8;
             i8 i8;
         } val;
-        NumberType m_type;
+        NumberType m_type = NumberType::non;
+        ASTTypeNode* m_typeNode;
     };
 
 

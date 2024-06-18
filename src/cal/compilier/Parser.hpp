@@ -1,6 +1,6 @@
 #pragma once
 
-#include "cal/Lexer.hpp"
+#include "Lexer.hpp"
 #include "cal/ast/ASTNodeBase.hpp"
 #include <cstddef>
 
@@ -44,7 +44,7 @@ namespace cal {
         Lexer& m_lex;
         IAllocator& m_alloc;
 
-        std::vector<Lexer::Token> m_tokens;
+        Array<Lexer::Token> m_tokens;
         size_t m_current;
 
         ASTNodeBase* m_root;

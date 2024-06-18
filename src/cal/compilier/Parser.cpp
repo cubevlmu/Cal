@@ -3,12 +3,17 @@
 #include "Lexer.hpp"
 #include "base/Logger.hpp"
 #include "json/json.h"
+#include "base/Utils.hpp"
 #include "base/allocator/IAllocator.hpp"
 #include "cal/ast/ASTAssignmentNode.hpp"
 #include "cal/ast/ASTBlockNode.hpp"
+#include "cal/ast/ASTFuncCallNode.hpp"
 #include "cal/ast/ASTFuncDefNode.hpp"
+#include "cal/ast/ASTFuncReturnNode.hpp"
+#include "cal/ast/ASTIdNode.hpp"
 #include "cal/ast/ASTNumberNode.hpp"
 #include "cal/ast/ASTOPNode.hpp"
+#include "cal/ast/ASTTypeNode.hpp"
 #include "cal/ast/ASTVarDefNode.hpp"
 
 namespace cal {
@@ -16,14 +21,14 @@ namespace cal {
 #define PARSE_ERR(...) do { LogError(__VA_ARGS__);ASSERT(false); } while (false)
 
     Parser::Parser(Lexer& lexer, IAllocator& alloc)
-        : m_lex(lexer), m_alloc(alloc)
+        : m_lex(lexer), m_alloc(alloc), m_tokens(alloc)
     {
 
     }
 
 
     void Parser::parse() {
-        m_tokens = m_lex.m_tokens;
+        m_lex.m_tokens.copyTo(m_tokens);
         m_root = parseStatements();
     }
 
@@ -33,11 +38,11 @@ namespace cal {
         if (m_root == nullptr)
             return;
 
-        ASTNodeBase::writeOutputToFile(m_root->buildOutput(), "ParserResult.json");
+        utils::writeOutputFromJson(m_root->buildOutput(), "ParserResult.json", false);
 
         LogDebug("[ParserResult] Parsed result:");
         LogDebug("\t In file ParserResult.json");
-        LogDebug("\t", ASTNodeBase::buildOutputFromJson(m_root->buildOutput()));
+        LogDebug("\t", utils::buildOutputFromJson(m_root->buildOutput()));
     }
 
 
@@ -90,21 +95,20 @@ namespace cal {
         m_current++;
         Lexer::Token vv = m_tokens[m_current];
 
-        ASTNodeBase::NumType var_type = ASTNodeBase::NumType::ERR_TP;
+        ASTTypeNode* var_type = nullptr;
         ASTNodeBase* initial_value = nullptr;
 
         if (vv.tk_type == Lexer::Token::TK_TYPE) {
-            var_type = ASTNodeBase::parseNumTypeText(vv.tk_item);
-            if (var_type == ASTNodeBase::NumType::ERR_TP)
-                var_type = ASTNodeBase::NumType::USER_DEFINED; // predict
-
+            var_type = CAL_NEW(m_alloc, ASTTypeNode)(m_alloc);
+            var_type->setType(vv.tk_item);
+            
             m_current++;
             if (m_tokens[m_current].tk_type != Lexer::Token::TokenType::TK_SEMICOLON) {
                 initial_value = parseExpression();
             }
         }
         else if (vv.tk_type != Lexer::Token::TK_SEMICOLON) {
-            var_type = ASTNodeBase::NumType::VariableReturn; //TODO check it
+            var_type = nullptr; 
             initial_value = parseExpression();
         }
         else {
@@ -118,11 +122,11 @@ namespace cal {
             m_current++;
         }
 
-        if (var_type == ASTNodeBase::NumType::ERR_TP)
-            PARSE_ERR("variable declear need to have a type");
+        // if (var_type == ASTNodeBase::NumType::ERR_TP)
+        //     PARSE_ERR("variable declear need to have a type");
 
         ASTVarDefNode* node = CAL_NEW(m_alloc, ASTVarDefNode)(m_alloc);
-        node->set(var_name, /*TODO vartype */nullptr, initial_value);
+        node->set(var_name, var_type, initial_value);
 
         return node;
     }
@@ -182,19 +186,22 @@ namespace cal {
         advance();
 
 
+        ASTFuncCallNode* cnode = CAL_NEW(m_alloc, ASTFuncCallNode)(m_alloc);
+        cnode->setName(function.tk_item);
+
         std::vector<ASTNodeBase*> args;
         while (!match(Lexer::Token::TK_SEMICOLON) && !match(Lexer::Token::TK_RIGHT_PAREN)) {
             // here is the smarter way dealing this
             if (peek().tk_type == Lexer::Token::TK_COMMA)
                 advance();
-            args.push_back(parseExpression());
+            cnode->addParam(parseExpression());
         }
 
         if (peek().tk_type == Lexer::Token::TK_SEMICOLON)
             advance();
 
-
-        return new FunctionCallNode(new IdentifierNode(IdentifierNode::Function, function.tk_item), args);
+        
+        return cnode;
     }
 
 
@@ -246,7 +253,11 @@ namespace cal {
         }
         else if (match(Lexer::Token::TK_IDENTIFIER)) {
             Lexer::Token id = m_tokens[m_current - 1];
-            //TODO return new IdentifierNode(IdentifierNode::Type::Variable, id.tk_item);
+
+            ASTIdNode* idn = CAL_NEW(m_alloc, ASTIdNode)(m_alloc);
+            idn->set(id.tk_item, ASTIdNode::Type::Variable);
+
+            return idn;
         }
         else if (match(Lexer::Token::TK_LEFT_PAREN)) {
             ASTNodeBase* expr = parseExpression();
@@ -287,9 +298,12 @@ namespace cal {
             Lexer::Token tk_type = advance();
             if (tk_type.tk_type != Lexer::Token::TK_TYPE)
                 PARSE_ERR("Function arguments should be typed, but : ", tk_type.tk_item);
+
+            ASTTypeNode* argTypeNode = CAL_NEW(m_alloc, ASTTypeNode)(m_alloc);
+            argTypeNode->setType(tk_type.tk_item);
             
             ASTFuncArgNode* argNode = CAL_NEW(m_alloc, ASTFuncArgNode)(m_alloc);
-            argNode->set(arg_name, nullptr); //TODO
+            argNode->set(arg_name, argTypeNode);
             
             node->addParams(argNode);
         }
@@ -298,6 +312,10 @@ namespace cal {
         std::string type_str = endTk.tk_item;
         if (endTk.tk_type != Lexer::Token::TK_FUNC_RETURN)
             PARSE_ERR("function should provide a return type");
+        
+        ASTTypeNode* retTypeNode = CAL_NEW(m_alloc, ASTTypeNode)(m_alloc);
+        retTypeNode->setType(type_str);
+
         // ASTNodeBase::NumType returnType = ASTNodeBase::parseNumTypeText(type_str);
         // Lexer::Token blockStart = advance();
 
@@ -305,7 +323,7 @@ namespace cal {
         //     PARSE_ERR("Function body should be start with '{'");
         node->setName(name.tk_item);
         node->setBody((ASTBlockNode*)parseBlock());
-        node->setRetType(nullptr); //TODO
+        node->setRetType(retTypeNode); 
 
         return node;
     }
@@ -342,7 +360,10 @@ namespace cal {
         if (peek().tk_type == Lexer::Token::TK_SEMICOLON)
             advance();
 
-        return new FunctionReturnNode(base);
+        ASTFuncReturnNode* cnode = CAL_NEW(m_alloc, ASTFuncReturnNode)(m_alloc);
+        cnode->set(base);
+
+        return cnode;
     }
 
 } // namespace cal
