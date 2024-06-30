@@ -41,6 +41,8 @@ namespace cal {
         ASTNodeBase* getRight() { return m_right; }
         OperatorType getOpType() const { return m_type; }
 
+        virtual bool checkSyntax(SyntaxAnalyzer* analyzer) const override;
+        
     private:
         ASTNodeBase *m_left, *m_right;
         OperatorType m_type;

@@ -1,6 +1,7 @@
 #include "ASTFuncCallNode.hpp"
 
 #include <json/json.h>
+#include "cal/compilier/precompile/SyntaxAnalyzer.hpp"
 
 namespace cal {
 
@@ -52,6 +53,37 @@ namespace cal {
 
     void ASTFuncCallNode::clearParams() {
         m_args.clear();
+    }
+
+
+    bool ASTFuncCallNode::checkSyntax(SyntaxAnalyzer* analyzer) const
+    {
+        auto fidx = analyzer->m_funcs.find(m_name);
+        if (!fidx.isValid()) {
+            analyzer->m_pc->addError("failed to found function", analyzer);
+            return false;
+        }
+
+        SyntaxAnalyzer::FuncDetail& dtl = fidx.value();
+        if (dtl.m_types.size() != m_args.size()) {
+            analyzer->m_pc->addError("function's declear's argument count can't fit with current arguments provided", analyzer);
+            return false;
+        }
+
+        bool cr = true;
+        for(auto i = 0; i < m_args.size(); i++) {
+            auto* arg = m_args[i];
+
+            cr |= arg->checkSyntax(analyzer);
+            cr |= dtl.m_types[i]->compareType(arg->getReturnType());
+        }
+        if(!cr) {
+            analyzer->m_pc->addError("failed to resolving function calling args, it's not fit with the declear", analyzer);
+            return cr;
+        }
+
+        m_ret_type = dtl.m_ret_type;
+        return true;
     }
 
 } // namespace cal

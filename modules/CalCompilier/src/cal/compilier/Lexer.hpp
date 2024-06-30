@@ -31,6 +31,8 @@ namespace cal {
         void parseFunctionCall();
         void parseFunctionDeclear();
         void parseStructDeclear();
+        void parseImport();
+        void parseExport();
 
     private:
         struct Token {
@@ -42,19 +44,20 @@ namespace cal {
                 TK_EQUAL, TK_PLUS, TK_MINUS, TK_DIVID, TK_MULTIPLE, 
                 TK_LEFT_PAREN, TK_RIGHT_PAREN,
                 TK_NUMBER, TK_TEXT, 
-                TK_IDENTIFIER, TK_STRUCT, TK_CLASS, TK_ENUM, TK_INTERFACE,
+                TK_IDENTIFIER, TK_STRUCT, TK_CLASS, TK_ENUM, TK_INTERFACE, TK_MODULE, TK_IMPORT, TK_EXPORT, TK_EXTERN,
                 TK_DECLEAR_CONST, TK_DECLEAR_PRIVATE, TK_DECLEAR_PUBLIC, TK_DECLEAR_PROTECTED, TK_DECLEAR_INTERNAL, TK_DECLEAR_EXPORT,
                 TK_FUNC_CALL, TK_FUNC_ARG, TK_FUNC_DEF, TK_RETURN, TK_FUNC_NAME, TK_FUNC_RETURN,
+                TK_MODULE_NAME, TK_EXPORT_ARG,
                 TK_UNKNOWN, TK_COMMA
             };
-            TokenType tk_type;
-            std::string tk_item;
+            const TokenType tk_type;
+            const std::string tk_item;
         };
 
         static const Token UnknownToken;
 
         Array<Token> m_tokens;
-        std::string m_src;
+        const std::string m_src;
         size_t m_pos;
         bool m_commentLineLock = false;
         bool m_use_multiline_comment = false;

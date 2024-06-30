@@ -2,6 +2,7 @@
 
 #include "ASTTypeNode.hpp"
 #include <json/json.h>
+#include "cal/compilier/precompile/SyntaxAnalyzer.hpp"
 
 namespace cal {
 
@@ -46,9 +47,9 @@ namespace cal {
         }
 
         m_initial_value = initial_value;
-        if(m_initial_value == nullptr)
+        if (m_initial_value == nullptr)
             return;
-            
+
         // if (!m_initial_value->getReturnType()->compareType(m_type))
         //     throw std::runtime_error("type not fit for the declear type and initial value's type");
     }
@@ -74,6 +75,34 @@ namespace cal {
 
     bool ASTVarDefNode::compareType(ASTTypeNode* type) {
         return type->compareType(this->m_type);
+    }
+
+
+    bool ASTVarDefNode::checkSyntax(SyntaxAnalyzer* analyzer) const
+    {
+        bool cr = m_type->checkSyntax(analyzer);
+        if (!cr) return cr;
+
+        if (analyzer->m_now_func_state == nullptr)
+        {
+            auto idx = analyzer->m_global_variables.find(m_name);
+            if (idx.isValid()) {
+                analyzer->m_pc->addError("variable has been declear before this", analyzer);
+                return false;
+            }
+            analyzer->m_global_variables.insert(m_name, m_type);
+
+        }
+        else {
+            auto idx = analyzer->m_now_func_state->m_local_variables.find(m_name);
+            if (idx.isValid()) {
+                analyzer->m_pc->addError("variable has been declear before this", analyzer);
+                return false;
+            }
+            analyzer->m_now_func_state->m_local_variables.insert(m_name, m_type);
+        }
+
+        return true;
     }
 
 } // namespace cal

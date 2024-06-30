@@ -1,6 +1,8 @@
 #include "ASTTypeNode.hpp"
 
 #include "base/Utils.hpp"
+#include "base/allocator/Allocators.hpp"
+#include "cal/compilier/precompile/SyntaxAnalyzer.hpp"
 #include <cctype>
 #include <json/json.h>
 
@@ -29,6 +31,20 @@ namespace cal {
     ASTTypeNode::ASTTypeNode(IAllocator& alloc)
         : ASTNodeBase(alloc), m_type_params(alloc)
     {
+    }
+
+
+    ASTTypeNode::ASTTypeNode(IAllocator& alloc, const std::string& typeStr)
+        : ASTNodeBase(alloc), m_type_params(alloc)
+    {
+        setType(typeStr);
+    }
+
+
+    ASTTypeNode::ASTTypeNode(IAllocator& alloc, TypeState typeStr)
+        : ASTNodeBase(alloc), m_type_params(alloc)
+    {
+        setType(typeStr);
     }
 
 
@@ -85,27 +101,44 @@ namespace cal {
                 do {
                     if (type_Str[pos] == ',') {
                         auto param_str = type_Str.substr(param_start, pos - param_start);
-                        int param = (std::stoi(param_str));
-                        m_type_params.push(param);
+                        if (pos - param_start == 0) {
+                            m_type_params.push(-1);
+                            m_any_length_arr |= true;
+                            pos++;
+                        }
+                        else {
+                            int param = (std::stoi(param_str));
+                            m_type_params.push(param);
+                        }
 
                         pos++;
                         param_start = pos;
                     }
                     else if (type_Str[pos] == ']') {
                         auto param_str = type_Str.substr(param_start, pos - param_start);
-                        int param = (std::stoi(param_str));
-                        m_type_params.push(param);
+                        if (pos - param_start == 0) {
+                            m_type_params.push(-1);
+                            m_any_length_arr |= true;
+                            pos++;
+                        }
+                        else {
+                            int param = (std::stoi(param_str));
+                            m_type_params.push(param);
+                        }
                         break;
                     }
                     else if (!std::isdigit(type_Str[pos])) {
                         pos = param_start;
-                        throw std::runtime_error("expected number in array defination '[x]'");
+                        m_type_params.push(-1);
+                        m_any_length_arr |= true;
+                        //throw std::runtime_error("expected number in array defination '[x]'");
                     }
                 } while (pos++ < type_Str.size());
             }
         } while (pos++ < type_Str.size());
 
         m_raw_type = type_Str;
+        m_raw_type = m_raw_type.erase(0, m_raw_type.find_first_not_of(' '));
         if (isArray) {
             if (type_Str[type_Str.size() - 1] != ']')
                 throw std::runtime_error("array type has no end tag : ']'");
@@ -150,11 +183,52 @@ namespace cal {
     }
 
 
+    bool ASTTypeNode::isStanderType() const
+    {
+        i32 i = (i32)m_state;
+        return i > 0 && i <= 10;
+    }
+
+
     bool ASTTypeNode::compareType(ASTTypeNode* node) {
+        // if (node->isStanderType() && isStanderType()) {
+        //     return compareStanderType(node);
+        // }
         return node->m_is_array == m_is_array &&
             node->m_is_verified == m_is_verified &&
             node->m_raw_type == m_raw_type &&
-            //todo node->m_type_params == m_type_params &&
+            node->m_type_params.size() == m_type_params.size() &&
             node->m_state == m_state;
+    }
+
+
+    bool ASTTypeNode::compareStanderType(ASTTypeNode* node)
+    {
+        // this is useless
+        // i32 ms = (i32)node->m_state;
+        // i32 ns = (i32)m_state;
+        // if((ms >= 11 || ms == 5) && (ns >= 11 || ns == 5) ) {
+        //     return ms == ns;
+        // }
+
+        return false;
+    }
+
+
+    bool ASTTypeNode::checkSyntax(SyntaxAnalyzer* analyzer) const
+    {
+        if (isAnyLengthArray() && m_allow_any_length_arr == false) {
+            analyzer->m_pc->addError("variable should declear array length at here [x,x]", analyzer);
+            return false;
+        }
+        if (isStanderType())
+            return true;
+        auto tidx = analyzer->m_types.indexOf(this);
+        if (!tidx) {
+            analyzer->m_pc->addError("variable type is not been declear", analyzer);
+            return false;
+        }
+
+        return true;
     }
 }

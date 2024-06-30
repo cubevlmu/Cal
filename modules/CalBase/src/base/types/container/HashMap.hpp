@@ -1,6 +1,7 @@
 #pragma once
 
 #include "base/allocator/IAllocator.hpp"
+#include <string>
 
 namespace cal {
 
@@ -37,6 +38,13 @@ namespace cal {
             x *= 0x846ca68bU;
             x ^= x >> 16;
             return x;
+        }
+    };
+
+    template<>
+    struct HashFunc<std::string> {
+        static u32 get(const std::string& str) {
+            return static_cast<u32>(std::hash<std::string>{}(str));
         }
     };
 

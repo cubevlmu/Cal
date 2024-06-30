@@ -15,6 +15,9 @@ namespace cal {
 
     public:
         explicit ASTTypeNode(IAllocator& alloc);
+        explicit ASTTypeNode(IAllocator& alloc, const std::string& typeStr);
+        explicit ASTTypeNode(IAllocator& alloc, TypeState typeStr);
+
         virtual ~ASTTypeNode() override;
 
         virtual Json::Value buildOutput() const override;
@@ -25,17 +28,28 @@ namespace cal {
         void setType(TypeState state);
         bool isVerified() const;
         void clear();
+        bool isStanderType() const;
 
         TypeState getTypeState() const { return m_state; }
         std::string getRawTypeStr() const { return m_raw_type; }
         bool isArray() const { return m_is_array; }
+        bool isAnyLengthArray() const {
+            return m_any_length_arr;
+        }
+        void setAllowAnyLengthArray(bool val) { m_allow_any_length_arr = val; }
 
         bool compareType(ASTTypeNode* node);
+        bool compareStanderType(ASTTypeNode* node);
+
+        virtual bool checkSyntax(SyntaxAnalyzer* analyzer) const override;
 
     private:
         std::string m_raw_type;
+        bool m_any_length_arr = false;
+        bool m_allow_any_length_arr = false;
         
-        bool m_is_array, m_is_verified;
+        bool m_is_array = false;
+        bool m_is_verified = false;
         Array<int> m_type_params;
         
         TypeState m_state = TypeState::none;

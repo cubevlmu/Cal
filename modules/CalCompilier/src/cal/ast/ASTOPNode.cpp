@@ -1,6 +1,8 @@
 #include "ASTOPNode.hpp"
 
 #include <json/json.h>
+#include "cal/ast/ASTNodeBase.hpp"
+#include "cal/compilier/precompile/SyntaxAnalyzer.hpp"
 
 namespace cal {
 
@@ -40,8 +42,8 @@ namespace cal {
         ASSERT(m_left);
         ASSERT(m_right);
 
-        if (m_left->getReturnType() != m_right->getReturnType())
-            return nullptr;
+        // if (!m_left->getReturnType()->compareType(m_right->getReturnType()))
+        //     return nullptr;
         return m_left->getReturnType();
     }
 
@@ -54,6 +56,33 @@ namespace cal {
         m_left = left;
         m_right = right;
         m_type = type;
+    }
+
+
+    bool ASTOPNode::checkSyntax(SyntaxAnalyzer* analyzer) const
+    {
+        bool pc = m_left->checkSyntax(analyzer);
+        if (!pc) return pc;
+        pc = m_right->checkSyntax(analyzer);
+        if (!pc) return pc;
+
+        ASTTypeNode* lt = m_left->getReturnType();
+        ASTTypeNode* rt = m_right->getReturnType();
+        if (lt == nullptr) { 
+            analyzer->m_pc->addError("left oprand's type is unknown", analyzer);
+            return false;
+        }
+        if (rt == nullptr) { 
+            analyzer->m_pc->addError("right oprand's type is unknown", analyzer);
+            return false;
+        }
+
+        if (!lt->compareType(rt)) {
+            analyzer->m_pc->addError("two oprand's type is not equal", analyzer);
+            return false;
+        }
+
+        return true;
     }
 
 }

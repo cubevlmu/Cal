@@ -27,6 +27,8 @@ namespace cal {
 
         void setConstant(bool cst) { m_const = cst; }
         bool getIsConstant() const { return m_const; }
+        
+        virtual bool checkSyntax(SyntaxAnalyzer* analyzer) const override;
 
     private:
         std::string  m_name;

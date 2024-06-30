@@ -6,6 +6,8 @@
 #include "cal/compilier/Lexer.hpp"
 #include "cal/compilier/Parser.hpp"
 #include "cal/ast/ASTTypeNode.hpp"
+#include "cal/compilier/precompile/PreCompile.hpp"
+#include "cal/compilier/precompile/SyntaxAnalyzer.hpp"
 
 // #include "cal/Lexer.hpp"
 // #include "cal/Parser.hpp"
@@ -15,9 +17,6 @@
 
 int main(int argc, char** argv) {
     InitLogger();
-
-    argc--;
-    argv++;
 
     if (argc > 0) {
         // Run the script from args
@@ -41,10 +40,10 @@ int main(int argc, char** argv) {
     // LogInfo("Array 0 : ", ar[0]);
     // LogInfo("Array 1 : ", ar[1]);
 
-    auto* ptr = CAL_NEW(alloc, cal::ASTTypeNode)(alloc);
-    ptr->setType("i32[10]");
-    LogInfo(ptr->toString());
-    CAL_DEL(alloc, ptr);
+    // auto* ptr = CAL_NEW(alloc, cal::ASTTypeNode)(alloc);
+    // ptr->setType("i32[10]");
+    // LogInfo(ptr->toString());
+    // CAL_DEL(alloc, ptr);
 
     // cal::CalBytecode code {};
     // code.read("test.calcls");
@@ -55,7 +54,17 @@ int main(int argc, char** argv) {
     std::string test_source = R"(
         /* 
         import std.network.socket;
+
         import std.io.file;
+        export fun test1() {
+            test();
+        }
+        export 'c' var abc : i32;
+        extern {
+            fun nativePrint(a : char[]);
+            fun nativeRead() : char[];
+        }
+       
         module main; 
         */
 
@@ -65,22 +74,23 @@ int main(int argc, char** argv) {
             b : const i32,
             c : internal i32[1],
         }
-        args : string[]
         */
+
+        var dd : i32;
         
-        fun main() {
+        fun main(args : string[]) {
             var c : i32;
             var a = 0;
             var b : i32 = 10;
             a = 10 + 20 * (11 + 12); 
-            print(a*b);
+            b = test();
+            // print(a*b);
         }
 
         fun test() : i32 { 
             var a = 10;
             var b = 100;
-            var c = a == b;
-            return 10; 
+            //return 10; 
         }
     )";
 
@@ -92,12 +102,11 @@ int main(int argc, char** argv) {
     parser.parse();
     parser.debugPrint();
 
-    // cal::TypeChecker type_checker(parser);
-
-    // type_checker.registerFunctionDeclear("print", { cal::ASTBase::NumType::I32 });
-
-    // type_checker.check();
-    // type_checker.debugPrint();
+    cal::PreCompile pcmp(alloc);
+    pcmp.addPass(CAL_NEW(alloc, cal::SyntaxAnalyzer)(alloc));
+    pcmp.run(parser.getAST());
+    pcmp.printErrors();
+    pcmp.debugPrints();
 
     // cal::CodeGenerator code_gen(parser);
     // code_gen.compile();

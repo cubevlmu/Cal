@@ -30,6 +30,8 @@ namespace cal {
         T getValue() const;
         NumberType getNumberType() const { return m_type; }
 
+        virtual bool checkSyntax(SyntaxAnalyzer* analyzer) const override;
+
     private:
         union {
             float f;

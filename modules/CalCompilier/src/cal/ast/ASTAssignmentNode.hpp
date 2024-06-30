@@ -18,6 +18,8 @@ namespace cal {
 
         ASTNodeBase* getValue() const { return m_value; }
         std::string getVarName() const { return m_var_name; }
+        
+        virtual bool checkSyntax(SyntaxAnalyzer* analyzer) const override;
 
     private:
         std::string m_var_name;

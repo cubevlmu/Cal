@@ -12,6 +12,10 @@ namespace cal {
             FUNC_BODY, MODULE_BODY, DEFAULT
         };
 
+        enum SortType {
+            FUNC_DECLEAR, STRUCT_DECLEAR, VAR_DECLEAR
+        };
+
     public:
         explicit ASTBlockNode(IAllocator& alloc);
         virtual ~ASTBlockNode() override;
@@ -30,8 +34,11 @@ namespace cal {
 
         void setBlockType(BlockType type) { m_type = type; }
         BlockType getBlockType() const { return m_type; }
+        Array<ASTNodeBase*> pick(SortType) const;
 
         void setFuncReturnType(ASTTypeNode* type);
+        
+        virtual bool checkSyntax(SyntaxAnalyzer* analyzer) const override;
 
     private:
         Array<ASTNodeBase*> m_nodes;

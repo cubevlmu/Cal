@@ -22,6 +22,9 @@ namespace cal {
 
         void parse();
         void debugPrint();
+        ASTNodeBase* getAST() {
+            return m_root;
+        }
 
     private:
         Lexer::Token peek();

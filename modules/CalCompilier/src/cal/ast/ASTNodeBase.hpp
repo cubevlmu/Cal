@@ -4,7 +4,7 @@
 #include "base/allocator/IAllocator.hpp"
 
 namespace Json {
-class Value;
+    class Value;
 }
 
 namespace cal {
@@ -14,8 +14,8 @@ namespace cal {
     class GrammarChecker;
     class CodeGenerator;
     class CodeOptimizer;
-    
-    class ASTNodeBase 
+
+    class ASTNodeBase
     {
     public:
         enum class ASTNodeTypes {
@@ -33,18 +33,22 @@ namespace cal {
         virtual Json::Value buildOutput() const = 0;
         virtual ASTNodeTypes getType() const = 0;
         virtual ASTTypeNode* getReturnType() const;
-        virtual std::string toString() const; 
+        virtual std::string toString() const;
+        std::string getNodeName() const { return ASTNodeTypesString[(i32)getType()]; }
 
-        //TODO
+        /// @brief Check variable declear is vaild
+        /// @param analyzer analyzer pass
+        /// @return state of checking
         virtual bool checkSyntax(SyntaxAnalyzer* analyzer) const { return true; }
         virtual bool grammarCheck(GrammarChecker* checker) const { return true; }
         virtual bool codeGen(CodeGenerator* generator) const { return true; }
-        virtual bool optimizeSelf(CodeOptimizer* optimizer) const { return true; } 
-    
+        virtual bool optimizeSelf(CodeOptimizer* optimizer) const { return true; }
+
+    public:
+        ASTNodeBase* m_parent = nullptr;
+        ASTNodeBase* m_child = nullptr;
+
     protected:
         IAllocator& m_allocator;
-        
-    private:
-        ASTNodeBase* m_parent = nullptr;
     };
 }

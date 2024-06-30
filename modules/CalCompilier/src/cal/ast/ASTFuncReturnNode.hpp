@@ -21,6 +21,8 @@ namespace cal {
         void set(ASTNodeBase* m_val, ReturnType type = ReturnType::NormalReturn);
         ASTNodeBase* get() const { return m_val; }
         ReturnType getRetType() const { return m_type; }
+        
+        virtual bool checkSyntax(SyntaxAnalyzer* analyzer) const override;
 
     private:
         ASTNodeBase* m_val;

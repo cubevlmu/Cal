@@ -17,9 +17,10 @@ namespace cal {
         "TK_EQUAL", "TK_PLUS", "TK_MINUS", "TK_DIVID", "TK_MULTIPLE",
         "TK_LEFT_PAREN", "TK_RIGHT_PAREN",
         "TK_NUMBER", "TK_TEXT",
-        "TK_IDENTIFIER", "TK_STRUCT", "TK_CLASS", "TK_ENUM", "TK_INTERFACE",
+        "TK_IDENTIFIER", "TK_STRUCT", "TK_CLASS", "TK_ENUM", "TK_INTERFACE", "TK_MODULE", "TK_IMPORT", "TK_EXPORT", "TK_EXTERN",
         "TK_DECLEAR_CONST", "TK_DECLEAR_PRIVATE", "TK_DECLEAR_PUBLIC", "TK_DECLEAR_PROTECTED", "TK_DECLEAR_INTERNAL", "TK_DECLEAR_EXPORT",
         "TK_FUNC_CALL", "TK_FUNC_ARG", "TK_FUNC_DEF", "TK_RETURN", "TK_FUNC_NAME", "TK_FUNC_RETURN",
+        "TK_MODULE_NAME", "TK_EXPORT_ARG",
         "TK_UNKNOWN","TK_COMMA"
     };
 
@@ -108,6 +109,24 @@ namespace cal {
                 else if (checkTokenMatched("return ")) {
                     m_pos += 7;
                     LEX_TK_ADD(Token::TK_RETURN, "return");
+                }
+                else if (checkTokenMatched("module ")) {
+                    m_pos += 7;
+                    LEX_TK_ADD(Lexer::Token::TK_MODULE, "module");
+                }
+                else if (checkTokenMatched("import ")) {
+                    m_pos += 7;
+                    LEX_TK_ADD(Lexer::Token::TK_IMPORT, "import");
+                    parseImport();
+                }
+                else if (checkTokenMatched("export ")) {
+                    m_pos += 7;
+                    LEX_TK_ADD(Lexer::Token::TK_EXPORT, "export");
+                    parseExport();
+                }
+                else if (checkTokenMatched("extern ")) {
+                    m_pos += 7;
+                    LEX_TK_ADD(Lexer::Token::TK_EXTERN, "extern");
                 }
                 else {
                     parseVariableOrFuncCall();
@@ -359,7 +378,14 @@ namespace cal {
             start = m_pos;
             do {
                 m_pos++;
-            } while (m_pos < m_src.length() && m_src[m_pos] != ',' && !std::isspace(m_src[m_pos]) && m_src[m_pos] != ')');
+            } while (m_pos < m_src.length() && m_src[m_pos] != '[' && m_src[m_pos] != ',' && !std::isspace(m_src[m_pos]) && m_src[m_pos] != ')');
+            
+            if(m_src[m_pos] == '[') {
+                do {
+                    m_pos++;
+                } while(m_pos < m_src.length() && m_src[m_pos] != ']' && !std::isspace(m_src[m_pos]) && m_src[m_pos] != ')');
+                m_pos++;
+            }
             value = m_src.substr(start, m_pos - start);
 
             LEX_TK_ADD(Token::TK_TYPE, value);
@@ -469,6 +495,32 @@ namespace cal {
         m_pos++;
 
         goToNextNonSpace();
+    }
+
+
+    void Lexer::parseImport()
+    {
+        goToNextNonSpace();
+        size_t start = m_pos;
+        do {
+            m_pos++;
+        } while(m_src[m_pos] != ';' && m_pos < m_src.length());
+        if(m_pos == m_src.length())
+        {
+            m_pos = start;
+            return;
+        }
+        std::string moduleStr = m_src.substr(start, m_pos - start);
+        LEX_TK_ADD(Token::TK_MODULE_NAME, moduleStr);
+    }
+
+
+    void Lexer::parseExport()
+    {
+        goToNextNonSpace();
+        if (!checkTokenMatched("'c'") && !checkTokenMatched("'C'")) return;
+        m_pos += 3;
+        LEX_TK_ADD(Token::TK_EXPORT_ARG, "Stander");
     }
 
 } // namespace cal

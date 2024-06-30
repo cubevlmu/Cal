@@ -23,6 +23,9 @@ namespace cal {
         Type getIdType() const { return m_type; }
         std::string getName() const { return m_name; }
 
+        //TODO
+        virtual bool checkSyntax(SyntaxAnalyzer* analyzer) const override;
+
     private:
         std::string m_name;
         Type m_type;

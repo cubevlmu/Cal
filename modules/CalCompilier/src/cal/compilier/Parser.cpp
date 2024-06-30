@@ -101,14 +101,14 @@ namespace cal {
         if (vv.tk_type == Lexer::Token::TK_TYPE) {
             var_type = CAL_NEW(m_allocator, ASTTypeNode)(m_allocator);
             var_type->setType(vv.tk_item);
-            
+
             m_current++;
             if (m_tokens[m_current].tk_type != Lexer::Token::TokenType::TK_SEMICOLON) {
                 initial_value = parseExpression();
             }
         }
         else if (vv.tk_type != Lexer::Token::TK_SEMICOLON) {
-            var_type = nullptr; 
+            var_type = nullptr;
             initial_value = parseExpression();
         }
         else {
@@ -197,10 +197,7 @@ namespace cal {
             cnode->addParam(parseExpression());
         }
 
-        if (peek().tk_type == Lexer::Token::TK_SEMICOLON)
-            advance();
 
-        
         return cnode;
     }
 
@@ -219,7 +216,7 @@ namespace cal {
 
             ASTOPNode* op = CAL_NEW(m_allocator, ASTOPNode)(m_allocator);
             op->set(ASTOPNode::OperatorType::Add, node, right);
-            
+
             node = op;
         }
         return node;
@@ -231,7 +228,7 @@ namespace cal {
         ASTNodeBase* node = parsePrimary();
         while (match(Lexer::Token::TK_MULTIPLE)) {
             ASTNodeBase* right = parsePrimary();
-            
+
             ASTOPNode* op = CAL_NEW(m_allocator, ASTOPNode)(m_allocator);
             op->set(ASTOPNode::OperatorType::Multiply, node, right);
 
@@ -268,10 +265,16 @@ namespace cal {
                 PARSE_ERR("Expected ')' after expression");
             }
         }
+        else if (match(Lexer::Token::TK_FUNC_CALL)) {
+            return parseFunctionCall();
+        }
         else if (match(Lexer::Token::TK_COMMA)) {
             //TODO
             advance();
             return nullptr;
+        }
+        else if(match(Lexer::Token::TK_SEMICOLON)) {
+            advance();
         }
         else {
             PARSE_ERR("Unexpected token: ", peek().tk_item);
@@ -301,10 +304,10 @@ namespace cal {
 
             ASTTypeNode* argTypeNode = CAL_NEW(m_allocator, ASTTypeNode)(m_allocator);
             argTypeNode->setType(tk_type.tk_item);
-            
+
             ASTFuncArgNode* argNode = CAL_NEW(m_allocator, ASTFuncArgNode)(m_allocator);
             argNode->set(arg_name, argTypeNode);
-            
+
             node->addParams(argNode);
         }
 
@@ -312,7 +315,7 @@ namespace cal {
         std::string type_str = endTk.tk_item;
         if (endTk.tk_type != Lexer::Token::TK_FUNC_RETURN)
             PARSE_ERR("function should provide a return type");
-        
+
         ASTTypeNode* retTypeNode = CAL_NEW(m_allocator, ASTTypeNode)(m_allocator);
         retTypeNode->setType(type_str);
 
@@ -323,7 +326,7 @@ namespace cal {
         //     PARSE_ERR("Function body should be start with '{'");
         node->setName(name.tk_item);
         node->setBody((ASTBlockNode*)parseBlock());
-        node->setRetType(retTypeNode); 
+        node->setRetType(retTypeNode);
 
         return node;
     }
@@ -350,8 +353,8 @@ namespace cal {
         ASTNodeBase* base = nullptr;
         while (!match(Lexer::Token::TK_SEMICOLON)) {
             // here is the smarter way dealing this
-            if(base != nullptr) {
-                while(!match(Lexer::Token::TK_SEMICOLON)) advance();
+            if (base != nullptr) {
+                while (!match(Lexer::Token::TK_SEMICOLON)) advance();
                 break;
             }
             base = parseExpression();

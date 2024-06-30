@@ -1,5 +1,6 @@
 #include "ASTNumberNode.hpp"
 #include "cal/ast/ASTTypeNode.hpp"
+#include "globals.hpp"
 
 #include <json/json.h>
 
@@ -13,7 +14,7 @@ namespace cal {
 
 
     ASTNumberNode::~ASTNumberNode() {
-        CAL_DEL(m_allocator, m_typeNode);
+        // CAL_DEL(m_allocator, m_typeNode);
     }
 
 
@@ -40,14 +41,11 @@ namespace cal {
 
     void ASTNumberNode::set(const std::string& strNumber)
     {
-        static const i32 i8max = std::numeric_limits<i8>::max();
-        static const i32 i16max = std::numeric_limits<i16>::max();
-
         // for i32&u32
         try {
             i32 rel = std::stoi(strNumber);
 
-            if (rel < i8max) {
+            if (rel < kMaxI8) {
                 if (rel >= 0) {
                     val.u8 = (u8)rel;
                     m_type = NumberType::u8;
@@ -60,7 +58,7 @@ namespace cal {
                 return;
             }
 
-            if (rel < i16max) {
+            if (rel < kMaxI16) {
                 if (rel >= 0) {
                     val.u16 = (u16)rel;
                     m_type = NumberType::u16;
@@ -109,6 +107,13 @@ namespace cal {
             return;
         }
         catch (...) {}
+    }
+
+
+    bool ASTNumberNode::checkSyntax(SyntaxAnalyzer* analyzer) const
+    {
+        //TODO
+        return getReturnType()->checkSyntax(analyzer);
     }
 
 }

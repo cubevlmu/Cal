@@ -2,6 +2,7 @@
 
 #include "ASTNodeBase.hpp"
 #include "base/types/Array.hpp"
+#include "cal/compilier/precompile/SyntaxAnalyzer.hpp"
 #include <initializer_list>
 
 namespace cal {
@@ -10,6 +11,7 @@ namespace cal {
 
     class ASTFuncArgNode : public ASTNodeBase 
     {
+        friend class ASTFuncDefNode;
     public:
         ASTFuncArgNode(IAllocator& alloc);
         virtual ~ASTFuncArgNode() override;
@@ -22,6 +24,9 @@ namespace cal {
         virtual ASTNodeTypes getType() const override {
             return ASTNodeTypes::AST_FUNC_ARG_DEF;
         }
+        void registerTo(SyntaxAnalyzer* analyzer);
+
+        virtual bool checkSyntax(SyntaxAnalyzer* analyzer) const override;
 
     private:
         std::string  m_name;
@@ -58,6 +63,9 @@ namespace cal {
 
         void setBody(ASTBlockNode* body);
         ASTBlockNode* getBody() const { return m_func_body; }
+        bool registerTo(SyntaxAnalyzer* analyzer);
+        
+        virtual bool checkSyntax(SyntaxAnalyzer* analyzer) const override;
 
     private:
         std::string m_name;
@@ -66,5 +74,6 @@ namespace cal {
 
         ASTBlockNode* m_func_body;
         FuncLinkType m_link_state;
+        SyntaxAnalyzer::FuncDetail m_dtl;
     };
 }

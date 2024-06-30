@@ -1,6 +1,8 @@
 #include "ASTAssignmentNode.hpp"
 
 #include <json/json.h>
+#include "cal/ast/ASTNodeBase.hpp"
+#include "cal/compilier/precompile/SyntaxAnalyzer.hpp"
 
 namespace cal {
 
@@ -30,6 +32,36 @@ namespace cal {
         }
 
         m_value = value;
+    }
+
+
+    bool ASTAssignmentNode::checkSyntax(SyntaxAnalyzer* analyzer) const
+    {
+        bool cr = true;
+        cr = m_value->checkSyntax(analyzer);
+        if(!cr) return cr;
+
+        ASTTypeNode* real_type;
+        if (analyzer->m_now_func_state != nullptr) {
+            auto idx = analyzer->m_now_func_state->m_local_variables.find(m_var_name);
+            if (idx.isValid()) 
+                real_type = idx.value();
+        } else {
+            auto idx = analyzer->m_global_variables.find(m_var_name);
+            if (idx.isValid())
+                real_type = idx.value();
+        }
+        if(real_type == nullptr) {
+            analyzer->m_pc->addError("failed to found this variable", analyzer);
+            return false;
+        }
+
+        if (!m_value->getReturnType()->compareType(real_type)) {
+            analyzer->m_pc->addError("value type is not fit to the declear type", analyzer);
+            return false;
+        }
+
+        return true;
     }
 
 }
