@@ -1,7 +1,9 @@
 #include "ASTIdNode.hpp"
 
 #include <json/json.h>
+#include "cal/ast/ASTNodeBase.hpp"
 #include "cal/compilier/precompile/SyntaxAnalyzer.hpp"
+#include "utils/StringBuilder.hpp"
 
 namespace cal {
 
@@ -30,6 +32,16 @@ namespace cal {
     }
 
 
+    std::string ASTIdNode::toString() const
+    {
+        return StringBuilder {
+            ASTNodeBase::toString(),
+            " [IdType:", TypeStr[(i32)m_type], "]",
+            " [IdName:", m_name, "]"
+        };
+    }
+
+
     void ASTIdNode::set(const std::string& name, Type type) {
         m_name = name;
         m_type = type;
@@ -46,10 +58,10 @@ namespace cal {
                 if (idx.isValid()) return true;
             }
 
-            auto gidx = analyzer->m_global_variables.find(m_name);
-            if (gidx.isValid()) return true;
+            ASTTypeNode* tp = analyzer->m_table->getGlobalVariable(m_name);
+            if (tp != nullptr) return true;
             
-            analyzer->m_pc->addError("variable not declear in any scope", analyzer);
+            analyzer->m_pc->addError(S("Variable '", m_name,"' not declear in any known scope"), analyzer);
             return false;
         } else if (m_type == ASTIdNode::Type::ClassName) {
             // TODO

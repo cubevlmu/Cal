@@ -15,6 +15,6 @@ namespace cal {
         std::string getArg(const std::string& key) const;
 
     private:
-        HashMap<std::string, std::string> m_argMap;
+        
     };
 }

@@ -6,6 +6,7 @@
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/sinks/basic_file_sink.h>
+#include "system/io/Path.hpp"
 
 #define FORMAT "[%^%L%$] %v"
 
@@ -13,6 +14,8 @@ namespace cal {
     std::shared_ptr<Logger> LoggerManager::s_logger;
 
     void Logger::addLog(const char* val) { ss << val; }
+    void Logger::addLog(cal::Path& val) { ss << val.c_str(); }
+    void Logger::addLog(StringView val) { ss << val.toCString(); }
     void Logger::addLog(const std::string &val) { ss << val; }
     void Logger::addLog(u32 val) { ss << val; }
     void Logger::addLog(u16 val) { ss << val; }

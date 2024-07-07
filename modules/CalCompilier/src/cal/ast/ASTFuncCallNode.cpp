@@ -1,7 +1,9 @@
 #include "ASTFuncCallNode.hpp"
 
 #include <json/json.h>
+#include "cal/ast/ASTNodeBase.hpp"
 #include "cal/compilier/precompile/SyntaxAnalyzer.hpp"
+#include "utils/StringBuilder.hpp"
 
 namespace cal {
 
@@ -26,6 +28,21 @@ namespace cal {
         root["funcArgs"] = args;
 
         return root;
+    }
+
+
+    std::string ASTFuncCallNode::toString() const
+    {
+        StringBuilder args;
+        for (auto* arg : m_args) {
+            args.append(arg->toString());
+        }
+
+        return StringBuilder {
+            ASTNodeBase::toString(),
+            " [Name:", m_name, "]",
+            " [Args(", m_args.size(), "):{", args, "}]"
+        };
     }
 
 
@@ -58,15 +75,14 @@ namespace cal {
 
     bool ASTFuncCallNode::checkSyntax(SyntaxAnalyzer* analyzer) const
     {
-        auto fidx = analyzer->m_funcs.find(m_name);
-        if (!fidx.isValid()) {
-            analyzer->m_pc->addError("failed to found function", analyzer);
+        auto dtl = analyzer->m_table->getFunction(m_name);
+        if (dtl == SymbolTable::INVALID_FUNC) {
+            analyzer->m_pc->addError(S("Failed to resolve function: ", m_name), analyzer);
             return false;
         }
 
-        SyntaxAnalyzer::FuncDetail& dtl = fidx.value();
         if (dtl.m_types.size() != m_args.size()) {
-            analyzer->m_pc->addError("function's declear's argument count can't fit with current arguments provided", analyzer);
+            analyzer->m_pc->addError(S("Function's declearation argument count can't fit with current arguments provided. At ", m_name), analyzer);
             return false;
         }
 
@@ -78,7 +94,7 @@ namespace cal {
             cr |= dtl.m_types[i]->compareType(arg->getReturnType());
         }
         if(!cr) {
-            analyzer->m_pc->addError("failed to resolving function calling args, it's not fit with the declear", analyzer);
+            analyzer->m_pc->addError(S("Failed to resolving function calling args, it's not fit with the declear. At ", m_name), analyzer);
             return cr;
         }
 

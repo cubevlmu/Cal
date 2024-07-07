@@ -1,3 +1,5 @@
+#include <cstring>
+#include <exception>
 #include <iostream>
 
 #include "base/Logger.hpp"
@@ -8,6 +10,10 @@
 #include "cal/ast/ASTTypeNode.hpp"
 #include "cal/compilier/precompile/PreCompile.hpp"
 #include "cal/compilier/precompile/SyntaxAnalyzer.hpp"
+#include "utils/StringBuilder.hpp"
+
+#include "system/io/Stream.hpp"
+#include "system/SysIO.hpp"
 
 // #include "cal/Lexer.hpp"
 // #include "cal/Parser.hpp"
@@ -21,8 +27,8 @@ int main(int argc, char** argv) {
     if (argc > 0) {
         // Run the script from args
         LogInfo("[Arguments] catched:");
-        for(int i = 0; i < argc; i++) {
-            LogInfo("\t[",i,"] ", argv[i]);
+        for (int i = 0; i < argc; i++) {
+            LogInfo("\t[", i, "] ", argv[i]);
         }
         LogInfo("");
     }
@@ -30,20 +36,7 @@ int main(int argc, char** argv) {
         // Go to command line mode
     }
 
-    static cal::Allocator alloc {};
-    
-
-    // cal::Array<cal::i32> ar { alloc };
-    // ar.push(10);
-    // ar.push(20);
-
-    // LogInfo("Array 0 : ", ar[0]);
-    // LogInfo("Array 1 : ", ar[1]);
-
-    // auto* ptr = CAL_NEW(alloc, cal::ASTTypeNode)(alloc);
-    // ptr->setType("i32[10]");
-    // LogInfo(ptr->toString());
-    // CAL_DEL(alloc, ptr);
+    static cal::Allocator alloc{};
 
     // cal::CalBytecode code {};
     // code.read("test.calcls");
@@ -68,13 +61,16 @@ int main(int argc, char** argv) {
         module main; 
         */
 
-        /*
         struct test {
             a : i32,
             b : const i32,
-            c : internal i32[1],
+            c : internal i32[1]
         }
-        */
+
+        struct string {
+            str : internal u16[8],
+            len : internal u64
+        }
 
         var dd : i32;
         
@@ -82,6 +78,9 @@ int main(int argc, char** argv) {
             var c : i32;
             var a = 0;
             var b : i32 = 10;
+            var e = new test;
+            // e.a = 10;
+
             a = 10 + 20 * (11 + 12); 
             b = test();
             // print(a*b);
@@ -102,16 +101,24 @@ int main(int argc, char** argv) {
     parser.parse();
     parser.debugPrint();
 
+    LogDebug("[Parser] AST Content:");
+    LogDebug("\t", parser.getAST()->toString());
+
+
+    cal::SyntaxAnalyzer* syntaxPass = CAL_NEW(alloc, cal::SyntaxAnalyzer)(alloc);
+
     cal::PreCompile pcmp(alloc);
-    pcmp.addPass(CAL_NEW(alloc, cal::SyntaxAnalyzer)(alloc));
+    pcmp.addPass(syntaxPass);
     pcmp.run(parser.getAST());
     pcmp.printErrors();
     pcmp.debugPrints();
 
+    // syntaxPass->m_table->dumpMap();
+
     // cal::CodeGenerator code_gen(parser);
     // code_gen.compile();
     // code_gen.debugPrint();
- 
+
     // cal::CalBytecode codes = code_gen.getBytecodes();
     // codes.write("test.calcls");
 

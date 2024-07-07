@@ -2,7 +2,10 @@
 
 #include "base/Utils.hpp"
 #include "base/allocator/Allocators.hpp"
+#include "base/allocator/IAllocator.hpp"
+#include "base/allocator/TagAllocator.hpp"
 #include "cal/compilier/precompile/SyntaxAnalyzer.hpp"
+#include "utils/StringBuilder.hpp"
 #include <cctype>
 #include <json/json.h>
 
@@ -10,7 +13,7 @@ namespace cal {
 
     static const char* TypeStateStr[] = {
         "i32", "i64", "i16", "i8", "f32", "boolean",
-        "u32", "u64", "u16", "u8", "f64", "null", "defined", "none"
+        "u32", "u64", "u16", "u8", "f64", "null", "defined", "none", "void"
     };
 
 
@@ -58,6 +61,7 @@ namespace cal {
         obj["type"] = ASTNodeBase::ASTNodeTypesString[(int)this->getType()];
         obj["rawTypeStr"] = m_raw_type;
         obj["isArray"] = m_is_array;
+        obj["isVarArray"] = m_any_length_arr;
         if (m_is_array) {
             Json::Value params(Json::ValueType::arrayValue);
 
@@ -74,23 +78,24 @@ namespace cal {
 
     std::string ASTTypeNode::toString() const
     {
-        std::string parent = ASTNodeBase::toString();
-        BeginAppender();
-        AppenderAppend(parent);
-        AppenderAppend("\n\tTypeState: "); AppenderAppend(TypeStateStr[(int)m_state]);
-        AppenderAppend("\n\tIsArray: "); AppenderAppend(m_is_array ? "true" : "false");
-        AppenderAppend("\n\tArrayParams: ");
-        for (auto& itm : m_type_params) {
-            AppenderAppend(itm); AppenderAppend(" ");
-        }
-        return EndAppender();
+        StringBuilder args {};
+        for (auto& itm : m_type_params)
+            args.appendAll(itm, " ");
+        
+        return StringBuilder {
+            ASTNodeBase::toString(),
+            " [State:", TypeStateStr[(i32)m_state], "]",
+            " [IsArray:", m_is_array, "]",
+            " [Params(", m_type_params.size(), "):{", args, "}]"
+            " [IsAArray:", m_any_length_arr, "]"
+        };
     }
 
 
     void ASTTypeNode::setType(const std::string& type_Str)
     {
         size_t pos = 0, left_ = 0;
-        bool isArray;
+        bool isArray = false;
 
         do {
             if (type_Str[pos] == '[') {
@@ -139,10 +144,13 @@ namespace cal {
 
         m_raw_type = type_Str;
         m_raw_type = m_raw_type.erase(0, m_raw_type.find_first_not_of(' '));
+        if (m_any_length_arr) { isArray = true; }
         if (isArray) {
             if (type_Str[type_Str.size() - 1] != ']')
                 throw std::runtime_error("array type has no end tag : ']'");
             m_is_array = isArray;
+            
+            m_origin_type_str = m_raw_type;
             m_raw_type = m_raw_type.erase(m_raw_type.find("["), m_raw_type.find("]"));
         }
 
@@ -185,8 +193,7 @@ namespace cal {
 
     bool ASTTypeNode::isStanderType() const
     {
-        i32 i = (i32)m_state;
-        return i > 0 && i <= 10;
+        return m_state != TypeState::null && m_state != TypeState::defined;
     }
 
 
@@ -223,12 +230,48 @@ namespace cal {
         }
         if (isStanderType())
             return true;
-        auto tidx = analyzer->m_types.indexOf(this);
-        if (!tidx) {
+
+        if (!analyzer->findTypeByRawType(m_raw_type)) {
             analyzer->m_pc->addError("variable type is not been declear", analyzer);
             return false;
         }
 
         return true;
+    }
+
+    class ASTTypePool : public ASTNodePool<ASTTypeNode>
+    {
+    public:
+        ASTTypePool(IAllocator& alloc) : ASTNodePool(alloc, "TypeNodePool") {}
+    };
+
+    static ref<ASTTypePool> s_Pool;
+
+
+    ASTTypeNode* ASTTypeNode::getTypeFromPool(const std::string& raw_type)
+    {
+        if (!s_Pool) {
+            s_Pool.reset(CAL_NEW(getGlobalAllocator(), ASTTypePool)(getGlobalAllocator()));
+        }
+
+        ASTTypeNode* node = s_Pool->newToPool(raw_type);
+        if (!node->isVerified())
+            node->setType(raw_type);
+
+        return node;
+    }
+
+
+    ASTTypeNode* ASTTypeNode::getTypeFromPool(TypeState state)
+    {
+        if (!s_Pool) {
+            s_Pool.reset(CAL_NEW(getGlobalAllocator(), ASTTypePool)(getGlobalAllocator()));
+        }
+        
+        ASTTypeNode* node = s_Pool->newToPool(TypeStateStr[(i32)state]);
+        if (!node->isVerified())
+            node->setType(state);
+
+        return node;
     }
 }

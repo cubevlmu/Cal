@@ -11,8 +11,11 @@
 #include "cal/ast/ASTFuncDefNode.hpp"
 #include "cal/ast/ASTFuncReturnNode.hpp"
 #include "cal/ast/ASTIdNode.hpp"
+#include "cal/ast/ASTNewNode.hpp"
+#include "cal/ast/ASTNodeBase.hpp"
 #include "cal/ast/ASTNumberNode.hpp"
 #include "cal/ast/ASTOPNode.hpp"
+#include "cal/ast/ASTStructNode.hpp"
 #include "cal/ast/ASTTypeNode.hpp"
 #include "cal/ast/ASTVarDefNode.hpp"
 
@@ -29,6 +32,7 @@ namespace cal {
 
     void Parser::parse() {
         m_lex.m_tokens.copyTo(m_tokens);
+        m_lex.m_tokens.clear();
         m_root = parseStatements();
     }
 
@@ -99,8 +103,7 @@ namespace cal {
         ASTNodeBase* initial_value = nullptr;
 
         if (vv.tk_type == Lexer::Token::TK_TYPE) {
-            var_type = CAL_NEW(m_allocator, ASTTypeNode)(m_allocator);
-            var_type->setType(vv.tk_item);
+            var_type = ASTTypeNode::getTypeFromPool(vv.tk_item);
 
             m_current++;
             if (m_tokens[m_current].tk_type != Lexer::Token::TokenType::TK_SEMICOLON) {
@@ -151,6 +154,14 @@ namespace cal {
         }
         else if (match(Lexer::Token::TK_RETURN)) {
             return parseReturn();
+        }
+        else if (match(Lexer::Token::TK_STRUCT)) {
+            m_current--;
+            return parseStructDeclear();
+        }
+        else if (match(Lexer::Token::TK_NEW)) {
+            m_current--;
+            return parseCreateInstance();
         }
         else {
             PARSE_ERR("Unexpect token : ", peek().tk_item);
@@ -273,8 +284,12 @@ namespace cal {
             advance();
             return nullptr;
         }
-        else if(match(Lexer::Token::TK_SEMICOLON)) {
+        else if (match(Lexer::Token::TK_SEMICOLON)) {
             advance();
+        }
+        else if (match(Lexer::Token::TK_NEW)) {
+            m_current--;
+            return parseCreateInstance();
         }
         else {
             PARSE_ERR("Unexpected token: ", peek().tk_item);
@@ -302,8 +317,7 @@ namespace cal {
             if (tk_type.tk_type != Lexer::Token::TK_TYPE)
                 PARSE_ERR("Function arguments should be typed, but : ", tk_type.tk_item);
 
-            ASTTypeNode* argTypeNode = CAL_NEW(m_allocator, ASTTypeNode)(m_allocator);
-            argTypeNode->setType(tk_type.tk_item);
+            ASTTypeNode* argTypeNode = ASTTypeNode::getTypeFromPool(tk_type.tk_item);
 
             ASTFuncArgNode* argNode = CAL_NEW(m_allocator, ASTFuncArgNode)(m_allocator);
             argNode->set(arg_name, argTypeNode);
@@ -316,8 +330,7 @@ namespace cal {
         if (endTk.tk_type != Lexer::Token::TK_FUNC_RETURN)
             PARSE_ERR("function should provide a return type");
 
-        ASTTypeNode* retTypeNode = CAL_NEW(m_allocator, ASTTypeNode)(m_allocator);
-        retTypeNode->setType(type_str);
+        ASTTypeNode* retTypeNode = ASTTypeNode::getTypeFromPool(type_str);
 
         // ASTNodeBase::NumType returnType = ASTNodeBase::parseNumTypeText(type_str);
         // Lexer::Token blockStart = advance();
@@ -367,6 +380,94 @@ namespace cal {
         cnode->set(base);
 
         return cnode;
+    }
+
+
+    ASTNodeBase* Parser::parseStructDeclear()
+    {
+        std::string name = m_tokens[m_current].tk_item;
+        if (m_tokens[m_current].tk_type != Lexer::Token::TK_STRUCT) {
+            PARSE_ERR("current token is not struct type declearation. Roll back");
+            return nullptr;
+        }
+
+        ASTStructNode* st = CAL_NEW(m_alloc, ASTStructNode)(m_alloc);
+        st->set(name);
+
+        do {
+            advance();
+            if (peek().tk_type != Lexer::Token::TK_IDENTIFIER)
+                break;
+            std::string var_name = peek().tk_item;
+            StructMemberAccessibility ass = StructMemberAccessibility::DEFAULT;
+
+            do {
+                advance();
+                if (peek().tk_type == Lexer::Token::TK_TYPE)
+                    break;
+
+                switch (peek().tk_type) {
+                case Lexer::Token::TK_DECLEAR_INTERNAL:
+                    ass |= StructMemberAccessibility::INTERNAL;
+                    break;
+                case Lexer::Token::TK_DECLEAR_CONST:
+                    ass |= StructMemberAccessibility::CONST;
+                    break;
+                default:
+                    PARSE_ERR("Unexpected token before a struct member type");
+                }
+            } while (m_current < m_tokens.size());
+
+            if (peek().tk_type != Lexer::Token::TK_TYPE)
+                PARSE_ERR("Struct member need a decleared type");
+            std::string typeStr = peek().tk_item;
+
+            ASTTypeNode* tp = ASTTypeNode::getTypeFromPool(typeStr);
+
+            st->addMember(var_name, tp, ass);
+        } while (m_current < m_tokens.size());
+
+        return st;
+    }
+
+
+    ASTNodeBase* Parser::parseCreateInstance()
+    {
+        std::string name = m_tokens[m_current].tk_item;
+        if (m_tokens[m_current].tk_type != Lexer::Token::TK_NEW) {
+            PARSE_ERR("current token is not create instance declearation. Roll back");
+            return nullptr;
+        }
+
+        ASTNewNode* nw = CAL_NEW(m_alloc, ASTNewNode)(m_alloc);
+        nw->set(name);
+
+        advance();
+        if (peek().tk_type == Lexer::Token::TK_LEFT_BRACES) {
+            do {
+                advance();
+                if(peek().tk_type != Lexer::Token::TK_DOT) {
+                    PARSE_ERR("Expect a dot to access the member of struct instance");
+                }
+                advance();
+                if(peek().tk_type != Lexer::Token::TK_IDENTIFIER) {
+                    PARSE_ERR("Expect a member name to access the member of struct instance");
+                }
+                advance();
+                if(peek().tk_type != Lexer::Token::TK_EQUAL) {
+                    PARSE_ERR("Expect a equal char to assign the member of struct instance");
+                }
+                advance();
+                ASTNodeBase* assgin = parseExpression();
+                
+
+            } while(peek().tk_type != Lexer::Token::TK_RIGHT_BRACES);
+        }
+
+
+        //TODO
+
+        return nw;
     }
 
 } // namespace cal

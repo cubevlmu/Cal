@@ -3,6 +3,7 @@
 #include <json/json.h>
 #include "cal/ast/ASTNodeBase.hpp"
 #include "cal/compilier/precompile/SyntaxAnalyzer.hpp"
+#include "utils/StringBuilder.hpp"
 
 namespace cal {
 
@@ -21,6 +22,16 @@ namespace cal {
         root["assignsVal"] = m_value->buildOutput();
 
         return root;
+    }
+
+
+    std::string ASTAssignmentNode::toString() const
+    {
+        return StringBuilder {
+            ASTNodeBase::toString(),
+            " [Name:", m_var_name, "]",
+            " [Value:", m_value->toString(), "]"  
+        };
     }
 
 
@@ -47,9 +58,9 @@ namespace cal {
             if (idx.isValid()) 
                 real_type = idx.value();
         } else {
-            auto idx = analyzer->m_global_variables.find(m_var_name);
-            if (idx.isValid())
-                real_type = idx.value();
+            ASTTypeNode* type = analyzer->m_table->getGlobalVariable(m_var_name);
+            if (type != nullptr)
+                real_type = type;
         }
         if(real_type == nullptr) {
             analyzer->m_pc->addError("failed to found this variable", analyzer);

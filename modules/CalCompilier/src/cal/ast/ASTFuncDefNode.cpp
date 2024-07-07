@@ -1,5 +1,6 @@
 #include "ASTFuncDefNode.hpp"
 
+#include "base/allocator/TagAllocator.hpp"
 #include "cal/ast/ASTBlockNode.hpp"
 #include "cal/ast/ASTTypeNode.hpp"
 #include <json/json.h>
@@ -25,8 +26,7 @@ namespace cal {
         m_name = name;
 
         // duplicate origin type for func args
-        m_type = CAL_NEW(m_allocator, ASTTypeNode)(m_allocator);
-        m_type->setType(type->getRawTypeStr());
+        m_type = ASTTypeNode::getTypeFromPool(type->getOriginTypeStr());
 
         if (!type->isVerified())
             throw std::runtime_error("type not verified or not setup");
@@ -55,6 +55,7 @@ namespace cal {
         m_type->setAllowAnyLengthArray(true);
         return m_type->checkSyntax(analyzer);
     }
+
 
     ////////////////////////////////////////////////////////////////////////
     /// AST Function Node
@@ -151,8 +152,7 @@ namespace cal {
             return false;
         }
 
-        auto fidx = analyzer->m_funcs.find(m_name);
-        if (fidx.isValid()) {
+        if (analyzer->m_table->getFunction(m_name) != SymbolTable::INVALID_FUNC) {
             analyzer->m_pc->addError("function has been decleared before this", analyzer);
             return false;
         }
@@ -162,11 +162,11 @@ namespace cal {
         if (!cr) return cr;
 
         Array<std::string> arg_names(m_allocator);
-        SyntaxAnalyzer::FuncDetail func{
+        SymbolTable::FuncSymbol func {
             .m_ret_type = m_ret_type,
             .name = m_name
         };
-        m_dtl = func;
+        m_symbol = func;
 
         for (ASTFuncArgNode* func_arg : m_args) {
             i32 idx = arg_names.indexOf(func_arg->m_name);
@@ -180,7 +180,7 @@ namespace cal {
             cr |= func_arg->checkSyntax(analyzer);
         }
         if (!cr) return cr;
-        analyzer->m_funcs.insert(m_name, func);
+        analyzer->m_table->addFunction(m_name, func);
 
         return true;
     }
@@ -194,8 +194,8 @@ namespace cal {
             return false;
             // CAL_DEL(analyzer->m_alloc, analyzer->m_now_func_state);
         }
-        SyntaxAnalyzer::FuncDetail func {m_dtl};
-        analyzer->m_now_func_state = CAL_NEW(analyzer->m_alloc, SyntaxAnalyzer::FuncState)(analyzer->m_alloc, func);
+        SymbolTable::FuncSymbol func { m_symbol };
+        analyzer->m_now_func_state = CAL_NEW(analyzer->getAllocator(), SyntaxAnalyzer::FuncState)(analyzer->getAllocator(), func);
 
         bool cr = true;
 
@@ -206,7 +206,7 @@ namespace cal {
             cr = m_func_body->checkSyntax(analyzer);
         }
 
-        CAL_DEL(analyzer->m_alloc, analyzer->m_now_func_state);
+        CAL_DEL(analyzer->getAllocator(), analyzer->m_now_func_state);
         analyzer->m_now_func_state = nullptr;
         if (!cr) return cr;
         // clean up & post declear

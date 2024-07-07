@@ -3,6 +3,7 @@
 #include "base/allocator/IAllocator.hpp"
 #include "base/types/Array.hpp"
 #include "cal/ast/ASTNodeBase.hpp"
+#include "utils/StringBuilder.hpp"
 namespace cal {
 
     class PreCompile;

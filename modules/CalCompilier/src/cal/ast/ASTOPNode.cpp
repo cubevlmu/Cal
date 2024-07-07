@@ -3,13 +3,14 @@
 #include <json/json.h>
 #include "cal/ast/ASTNodeBase.hpp"
 #include "cal/compilier/precompile/SyntaxAnalyzer.hpp"
+#include "utils/StringBuilder.hpp"
 
 namespace cal {
 
     static const char* OperatorTypeStr[] = {
         "Add", "Subtract", "Multiply", "Divide", "Modulus",
-        "And", "Or", "Not",       
-        "Equal", "NotEqual", 
+        "And", "Or", "Not",
+        "Equal", "NotEqual",
         "LessThan", "GreaterThan",
         "LessOrEqual", "GreaterOrEqual"
     };
@@ -34,6 +35,17 @@ namespace cal {
         obj["right"] = m_right == nullptr ? "nil" : m_right->buildOutput();
 
         return obj;
+    }
+
+
+    std::string ASTOPNode::toString() const
+    {
+        return StringBuilder {
+            ASTNodeBase::toString(),
+            " [OP:", OperatorTypeStr[(i32)m_type], "]",
+            " [Left:", m_left == nullptr ? "nil" : m_left->toString(), "] ",
+            " [Right:", m_right == nullptr ? "nil" : m_right->toString(), "]"
+        };
     }
 
 
@@ -68,11 +80,11 @@ namespace cal {
 
         ASTTypeNode* lt = m_left->getReturnType();
         ASTTypeNode* rt = m_right->getReturnType();
-        if (lt == nullptr) { 
+        if (lt == nullptr) {
             analyzer->m_pc->addError("left oprand's type is unknown", analyzer);
             return false;
         }
-        if (rt == nullptr) { 
+        if (rt == nullptr) {
             analyzer->m_pc->addError("right oprand's type is unknown", analyzer);
             return false;
         }

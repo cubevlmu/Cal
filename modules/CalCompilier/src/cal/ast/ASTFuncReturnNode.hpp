@@ -17,6 +17,7 @@ namespace cal {
         virtual Json::Value buildOutput() const override;
         virtual ASTNodeTypes getType() const override
         { return ASTNodeTypes::AST_FUNC_RET; }
+        virtual std::string toString() const override; 
 
         void set(ASTNodeBase* m_val, ReturnType type = ReturnType::NormalReturn);
         ASTNodeBase* get() const { return m_val; }

@@ -5,7 +5,7 @@
 namespace cal {
 
     ArgsParser::ArgsParser(i32 argc, const char** argv, IAllocator& alloc)
-        : m_argMap(alloc)
+        
     {
         argc--;
         argv++;

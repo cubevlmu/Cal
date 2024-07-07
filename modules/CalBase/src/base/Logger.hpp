@@ -5,6 +5,7 @@
 #include <string>
 #include <sstream>
 #include <memory>
+#include "base/types/String.hpp"
 #include "globals.hpp"
 
 namespace spdlog {
@@ -12,6 +13,8 @@ namespace spdlog {
 }
 
 namespace cal {
+
+    struct Path;
 
     enum LogLevel {
         LogWarn, LogError, LogDebug, LogInfo, LogTrace
@@ -21,6 +24,8 @@ namespace cal {
     {
     private:
         void addLog(const char* val);
+        void addLog(cal::Path& pth);
+	    void addLog(StringView val);
         void addLog(const std::string& val);
         void addLog(u64 val);
         void addLog(u32 val);

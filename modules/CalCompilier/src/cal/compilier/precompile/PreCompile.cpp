@@ -94,7 +94,7 @@ namespace cal {
 
     void PreCompile::addError(const std::string& str, IPrecompilePass* pass)
     {
-        ASSERT(pass);
+        //ASSERT(pass);
         // if (!m_passes.indexOf(pass)) return;
         PCError err{
             .pass = pass,

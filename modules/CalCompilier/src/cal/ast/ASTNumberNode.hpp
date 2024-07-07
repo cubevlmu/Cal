@@ -18,6 +18,7 @@ namespace cal {
 
         virtual Json::Value buildOutput() const override;
         virtual ASTTypeNode* getReturnType() const override;
+        virtual std::string toString() const override; 
         virtual ASTNodeTypes getType() const override
         {
             return ASTNodeTypes::AST_NUMBER;
