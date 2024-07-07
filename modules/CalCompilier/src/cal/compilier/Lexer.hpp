@@ -33,12 +33,13 @@ namespace cal {
         void parseStructDeclear();
         void parseImport();
         void parseExport();
+        void parseCreateInstance();
 
     private:
         struct Token {
             enum TokenType {
                 TK_EOF, TK_SEMICOLON, TK_EOL,
-                TK_VAR, TK_VAL, TK_TYPE,
+                TK_VAR, TK_VAL, TK_TYPE, TK_NEW,
                 TK_IS_EQUAL, 
                 TK_LEFT_BRACKET, TK_RIGHT_BRACKET, TK_LEFT_BRACES, TK_RIGHT_BRACES,
                 TK_EQUAL, TK_PLUS, TK_MINUS, TK_DIVID, TK_MULTIPLE, 
@@ -48,7 +49,7 @@ namespace cal {
                 TK_DECLEAR_CONST, TK_DECLEAR_PRIVATE, TK_DECLEAR_PUBLIC, TK_DECLEAR_PROTECTED, TK_DECLEAR_INTERNAL, TK_DECLEAR_EXPORT,
                 TK_FUNC_CALL, TK_FUNC_ARG, TK_FUNC_DEF, TK_RETURN, TK_FUNC_NAME, TK_FUNC_RETURN,
                 TK_MODULE_NAME, TK_EXPORT_ARG,
-                TK_UNKNOWN, TK_COMMA
+                TK_UNKNOWN, TK_COMMA, TK_DOT
             };
             const TokenType tk_type;
             const std::string tk_item;

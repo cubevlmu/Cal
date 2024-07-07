@@ -43,6 +43,8 @@ namespace cal {
         ASTNodeBase* parseFunctionDeclear();
         ASTNodeBase* parseBlock();
         ASTNodeBase* parseReturn();
+        ASTNodeBase* parseStructDeclear();
+        ASTNodeBase* parseCreateInstance();
 
     private:
         Lexer& m_lex;

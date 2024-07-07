@@ -33,6 +33,7 @@ namespace cal {
         virtual Json::Value buildOutput() const override;
         virtual ASTNodeTypes getType() const override 
         { return ASTNodeTypes::AST_OP; }
+        virtual std::string toString() const override; 
         virtual ASTTypeNode* getReturnType() const override;
 
         void set(const OperatorType& type, ASTNodeBase* left, ASTNodeBase* right);

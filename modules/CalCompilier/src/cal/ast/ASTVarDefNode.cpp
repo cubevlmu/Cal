@@ -2,7 +2,9 @@
 
 #include "ASTTypeNode.hpp"
 #include <json/json.h>
+#include "cal/ast/ASTNodeBase.hpp"
 #include "cal/compilier/precompile/SyntaxAnalyzer.hpp"
+#include "utils/StringBuilder.hpp"
 
 namespace cal {
 
@@ -25,6 +27,17 @@ namespace cal {
         root["varInitialValue"] = m_initial_value == nullptr ? "null" : m_initial_value->buildOutput();
 
         return root;
+    }
+
+
+    std::string ASTVarDefNode::toString() const
+    {
+        return StringBuilder { 
+            ASTNodeBase::toString(), 
+            " [Name:", m_name, "]",
+            " [Type:", m_type->toString(), "]",
+            " [IntialValue:", m_initial_value == nullptr ? "" : m_initial_value->toString(), "]"
+        };
     }
 
 
@@ -85,12 +98,12 @@ namespace cal {
 
         if (analyzer->m_now_func_state == nullptr)
         {
-            auto idx = analyzer->m_global_variables.find(m_name);
-            if (idx.isValid()) {
-                analyzer->m_pc->addError("variable has been declear before this", analyzer);
+            ASTTypeNode* var = analyzer->m_table->getGlobalVariable(m_name);
+            if (var != nullptr) {
+                analyzer->m_pc->addError(S("Variable '", m_name,"' has been declear before this"), analyzer);
                 return false;
             }
-            analyzer->m_global_variables.insert(m_name, m_type);
+            analyzer->m_table->addGlobalVariable(m_name, m_type);
 
         }
         else {

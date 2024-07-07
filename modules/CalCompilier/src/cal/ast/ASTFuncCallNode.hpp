@@ -12,13 +12,11 @@ namespace cal {
         virtual ~ASTFuncCallNode() override;
 
         virtual Json::Value buildOutput() const override;
+        virtual std::string toString() const override; 
         virtual ASTNodeTypes getType() const override
-        {
-            return ASTNodeTypes::AST_FUNC_CALL;
-        }
-        virtual ASTTypeNode* getReturnType() const override {
-            return m_ret_type;
-        }
+        { return ASTNodeTypes::AST_FUNC_CALL; }
+        virtual ASTTypeNode* getReturnType() const override 
+        { return m_ret_type; }
 
         void setName(const std::string& name);
         std::string getName() const { return m_name; }

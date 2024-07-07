@@ -1,6 +1,8 @@
 #include "ASTNumberNode.hpp"
+#include "cal/ast/ASTNodeBase.hpp"
 #include "cal/ast/ASTTypeNode.hpp"
 #include "globals.hpp"
+#include "utils/StringBuilder.hpp"
 
 #include <json/json.h>
 
@@ -9,7 +11,7 @@ namespace cal {
     ASTNumberNode::ASTNumberNode(IAllocator& alloc)
         : ASTNodeBase(alloc), m_type(NumberType::non)
     {
-        m_typeNode = CAL_NEW(alloc, ASTTypeNode)(alloc);
+        m_typeNode = ASTTypeNode::getTypeFromPool(ASTTypeNode::TypeState::none);
     }
 
 
@@ -36,6 +38,16 @@ namespace cal {
         
         m_typeNode->setType((ASTTypeNode::TypeState)m_type);
         return m_typeNode;
+    }
+
+
+    std::string ASTNumberNode::toString() const
+    {
+        return StringBuilder {
+            ASTNodeBase::toString(),
+            " [NumType:", (i32)m_type, "] ",
+            " [NumVal:", std::to_string(getValue<i64>()), "]"
+        };
     }
 
 

@@ -4,6 +4,7 @@
 #include <json/json.h>
 #include "cal/ast/ASTNodeBase.hpp"
 #include "cal/compilier/precompile/SyntaxAnalyzer.hpp"
+#include "utils/StringBuilder.hpp"
 
 namespace cal {
 
@@ -35,6 +36,21 @@ namespace cal {
     }
 
 
+    std::string ASTBlockNode::toString() const
+    {
+        StringBuilder nodes {};
+        for (auto* item : m_nodes) {
+            nodes.append(item->toString());
+        }
+
+        return StringBuilder {
+            ASTNodeBase::toString(),
+            " [Type:", ASTNodeBase::ASTNodeTypesString[(i32)getType()], "]",
+            " [Nodes(", m_nodes.size(), "):{", nodes, "}]",
+        };
+    }
+
+
     ASTTypeNode* ASTBlockNode::getReturnType() const
     {
         return nullptr;
@@ -43,7 +59,6 @@ namespace cal {
 
     void ASTBlockNode::addNode(ASTNodeBase* node)
     {
-        node->m_parent = this;
         m_nodes.push(node);
     }
 
@@ -56,6 +71,8 @@ namespace cal {
             if (node->getType() == ASTNodeBase::ASTNodeTypes::AST_FUNC_DEF && type == SortType::FUNC_DECLEAR) {
                 rst.push(node);
             } else if (node->getType() == ASTNodeBase::ASTNodeTypes::AST_VAR && type == SortType::VAR_DECLEAR) {
+                rst.push(node);
+            } else if (node->getType() == ASTNodeBase::ASTNodeTypes::AST_STRUCT && type == SortType::STRUCT_DECLEAR) {
                 rst.push(node);
             } else {
 

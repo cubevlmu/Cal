@@ -1,7 +1,9 @@
 #include "ASTFuncReturnNode.hpp"
 
 #include <json/json.h>
+#include "cal/ast/ASTNodeBase.hpp"
 #include "cal/compilier/precompile/SyntaxAnalyzer.hpp"
+#include "utils/StringBuilder.hpp"
 
 namespace cal {
 
@@ -22,6 +24,16 @@ namespace cal {
         root["returnValue"] = m_val->buildOutput();
 
         return root;
+    }
+
+
+    std::string ASTFuncReturnNode::toString() const
+    {
+        return StringBuilder {
+            ASTNodeBase::toString(),
+            " [ReturnType:", (i32)m_type, "]",
+            " [ReturnVal:", m_val->toString(), "]"
+        };
     }
 
 
