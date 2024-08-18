@@ -20,4 +20,6 @@ namespace cal {
     void StringBuilder::append(double i) { m_ss << i; }
     void StringBuilder::append(const StringBuilder& builder) { m_ss << builder.m_ss.str(); }
     void StringBuilder::append(const std::stringstream& ss) { m_ss << ss.str(); }
-}
+    
+    void StringBuilder::clear() { m_ss.clear(); }
+} // namespace cal

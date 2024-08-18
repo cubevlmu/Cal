@@ -1,0 +1,3 @@
+[I] Input a type to parse: 
+[E] [AST] found '[' but not found ']' in current type define: string[
+[W] [AST] pool : failed to parse an type -> string[

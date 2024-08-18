@@ -62,6 +62,8 @@ namespace cal {
             return getString();
         }
 
+        void clear();
+
     private:
         std::stringstream m_ss;
     };
