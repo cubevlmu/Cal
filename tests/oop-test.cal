@@ -1,0 +1,27 @@
+import system;
+import system.console;
+
+fun main(args : string[]) {
+    val catIns : main.animal = main.cat();
+    Console.writeLine(catIns.getName());
+    val ratIns : main.animal = main.rat();
+    Console.writeLine(ratIns.getName());
+}
+
+module main;
+
+interface animal {
+    getName() string;
+}
+
+class rat : animal {
+    impl getName() string {
+        return "Rat";
+    }
+}
+
+class cat : animal {
+    impl getName() string {
+        return "Cat";
+    }
+}

@@ -1,0 +1,22 @@
+import system;
+import system.unsafe;
+
+export unsafe fun nativePrint(charArr : ptr<i8>);
+
+unsafe fun main(args : string[]) {
+    $ptr = newPtr("hello world");
+    nativePrint(ptr);
+    delPtr(ptr);
+}
+
+unsafe fun newPtr(text : string) ptr<i8> {
+    val arr = text.toCharArray();
+    
+    $charArr = Unsafe.alloc<i8>(arr.length());
+    Unsafe.memcpy(arr, charArr, arr.length());
+    return ptr(charArr);
+}
+
+unsafe fun delPtr(ptr : ptr<i8>) {
+    Unsafe.free(ptr);
+}

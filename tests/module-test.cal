@@ -1,0 +1,12 @@
+import system;
+import system.console;
+
+fun main(args : string[]) {
+    simple.test("Hello world");
+}
+
+module simple;
+
+fun test(text : string) {
+    Console.writeFormat("In module print : %s\n", text);
+}

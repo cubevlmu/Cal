@@ -1,0 +1,27 @@
+import system;
+import system.console;
+
+fun main(args : string[]) {
+    val ins = main.test(100);
+    Console.writeFormat("Number : %i\n", ins.get());
+    ins.add(1000);
+    Console.writeFormat("Number : %i\n", ins.get());
+}
+
+module main;
+
+class test {
+    ctor(num : i32) {
+        self.num = num;
+    }
+    dtor() {}
+
+    fun add(num : i32) {
+        self.num += num;
+    }
+    fun get() i32 {
+        return self.num;
+    }
+    
+    var num : private i32;
+}

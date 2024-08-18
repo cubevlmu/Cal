@@ -1,0 +1,27 @@
+import system;
+
+fun main(args : string[]) {
+    val tt = main.test();
+
+    val a = tt.a; // a = 10
+    val b = tt.b; // compile failed
+    val c = tt.c; // compile failed
+    tt.test();    // compile failed
+}
+
+module main;
+
+class test {
+    ctor() {
+        a = 10;
+        b = 100;
+    }
+
+    private fun test() {
+
+    }
+
+    val a : i32;
+    val b : public i32;
+    val c : internal i32 = 1000;
+}

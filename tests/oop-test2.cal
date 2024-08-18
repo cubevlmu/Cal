@@ -1,0 +1,49 @@
+import system;
+import system.console;
+
+fun main(args : string[]) {
+    val dogIns : main.animal = main.dog();
+    Console.writeLine(dogIns.canBark());
+    dogIns.bark();
+
+    val ratIns : main.animal = main.rat();
+    Console.writeLine(ratIns.canBark());
+    ratIns.bark();
+}
+
+module main;
+
+class animal {
+    ctor(name : string) {
+        self.name = name;
+    }
+
+    virtual fun bark() {}
+    abstract fun canBark() bool; 
+
+    val name : string;
+}
+
+class rat : animal {
+    ctor() : animal("rat") {
+
+    }
+
+    override fun canBark() bool {
+        return false;
+    }
+}
+
+class dog : animal {
+    ctor() : animal("dog") {
+
+    }
+
+    override fun bark() {
+        Console.writeLine("Bark!");
+    }
+
+    override fun canBark() bool {
+        return true;
+    }
+}

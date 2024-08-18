@@ -1,0 +1,6 @@
+import system;
+import system.console;
+
+fun main(args : string[]) {
+    Console.writeLine("hello world");
+}

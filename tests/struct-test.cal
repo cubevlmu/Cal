@@ -1,0 +1,14 @@
+import system;
+
+struct test {
+    smallNumber : i8,
+    number : i16,
+    unchanged : const i32,
+    inModule : internal i64,
+    withDefault : string("Hello world")
+}
+
+fun main(args : string[]) {
+    val instance = test(unchanged=20);
+    instance.number = 10;
+}
