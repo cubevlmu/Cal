@@ -21,7 +21,10 @@ namespace cal {
     }
 
 
-    ASTNodeType* TypePool::getType(const std::string& raw) {
+    ASTNodeType* TypePool::getType(const std::string& origin) {
+        std::string raw = origin;
+        raw.erase(std::remove_if(raw.begin(), raw.end(), [](unsigned char c) { return std::isspace(c); }), raw.end());
+        
         auto result = m_pool.find(raw);
         if (result.isValid()) {
             return result.value();
@@ -34,7 +37,7 @@ namespace cal {
             CAL_DEL(m_alloc, ptr);
             return nullptr;
         }
-
+        
         m_pool.insert(raw, ptr);
         return ptr;
     }

@@ -35,8 +35,13 @@ namespace cal {
 
 
 
-    bool ASTNodeType::parse(const std::string& raw) {
+    bool ASTNodeType::parse(const std::string& origin) {
         int idx = 0;
+        
+        std::string raw = origin;
+        raw.erase(raw.find_last_not_of(" \n\r\t") + 1);
+        raw.erase(0, raw.find_first_not_of(" \n\r\t"));
+
         int max = raw.size();
 
         int array_begin = -1;
@@ -68,6 +73,8 @@ namespace cal {
                 array_end = idx;
             }
             if (now == '<') {
+                if (template_begin != -1)
+                    continue;
                 template_begin = idx;
             }
             if (now == '>') {
@@ -110,8 +117,8 @@ namespace cal {
                     last_char = idx;
 
                     std::string parm = raw.substr(old, last_char - old);
-                    // parm.erase(parm.find_last_not_of(" \n\r\t") + 1);
-                    // parm.erase(0, parm.find_first_not_of(" \n\r\t"));
+                    parm.erase(parm.find_last_not_of(" \n\r\t") + 1);
+                    parm.erase(0, parm.find_first_not_of(" \n\r\t"));
 
 
                     if (parm.size() > 2 && (parm[0] == '0' && (parm[1] == 'x' || parm[1] == 'X'))) {
@@ -176,8 +183,8 @@ namespace cal {
 
         if (template_begin != -1 && template_end != -1 && template_end < max) {
             std::string parm = raw.substr(template_begin + 1, template_end - template_begin - 1);
-            // parm.erase(parm.find_last_not_of(" \n\r\t") + 1);
-            // parm.erase(0, parm.find_first_not_of(" \n\r\t"));
+            parm.erase(parm.find_last_not_of(" \n\r\t") + 1);
+            parm.erase(0, parm.find_first_not_of(" \n\r\t"));
 
             ASTNodeType* type = TypePool::get().getType(parm);
             if (!type) {
@@ -246,7 +253,7 @@ namespace cal {
 
 
     std::string ASTNodeType::toString() {
-        return StringBuilder {
+        return StringBuilder{
 
         };
     }

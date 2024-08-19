@@ -1,3 +1,28 @@
 [I] Input a type to parse: 
-[E] [AST] found '[' but not found ']' in current type define: string[
-[W] [AST] pool : failed to parse an type -> string[
+[D] {
+	"ArrayDimension" : 0,
+	"ArrayLengthParms" : [],
+	"IsArray" : false,
+	"IsArrayAreReference" : false,
+	"IsTemplate" : true,
+	"IsVerified" : true,
+	"ParsedType" : "custom",
+	"RawTypeString" : "ptr<i32>",
+	"TemplateType" : 
+	{
+		"ArrayDimension" : 0,
+		"ArrayLengthParms" : [],
+		"IsArray" : false,
+		"IsArrayAreReference" : false,
+		"IsTemplate" : false,
+		"IsVerified" : true,
+		"ParsedType" : "i32",
+		"RawTypeString" : "i32",
+		"TemplateType" : "nullptr",
+		"TypeString" : "i32",
+		"type" : "TypeNode"
+	},
+	"TypeString" : "ptr",
+	"type" : "TypeNode"
+}
+

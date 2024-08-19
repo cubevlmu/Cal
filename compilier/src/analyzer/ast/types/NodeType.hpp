@@ -14,6 +14,7 @@ namespace cal {
     class ASTNodeType : public ASTNodeBase
     {
         friend class TypePool;
+        friend class ASTNumberNode;
 
         static const char* TYPE_STRS[];
         static int checkIdx(const std::string& type);
