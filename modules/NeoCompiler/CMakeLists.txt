@@ -17,8 +17,10 @@ set(HEAD
 )
 set(PROJ_NAME NeoCompiler)
 ###################################################################
+SetPlatformDeps(INCS LNKS)
+
 AddSpdlog(INCS LNKS)
-AddFmt(INCS LNKS)
+AddNeoBase(INCS LNKS DEPS)
 ###################################################################
 file(GLOB_RECURSE src
     "src/*.m"

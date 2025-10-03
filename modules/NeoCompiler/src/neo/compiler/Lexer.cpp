@@ -1,7 +1,12 @@
+// Created by cubevlmu on 2025/10/3.
+// Copyright (c) 2025 Flybird Games. All rights reserved.
+
 #include "neo/compiler/Lexer.hpp"
 
 #include "neo/compiler/DebugOutput.hpp"
 #include "neo/compiler/SourceFile.hpp"
+
+#include <nbase/base/Logger.hpp>
 
 namespace neo {
 

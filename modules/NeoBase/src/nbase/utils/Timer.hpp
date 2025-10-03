@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include <neo/common.hpp>
+#include <nbase/common.hpp>
 #include <chrono>
 
 namespace neo {

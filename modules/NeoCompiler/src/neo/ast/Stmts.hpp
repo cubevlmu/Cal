@@ -1,15 +1,21 @@
+// Created by cubevlmu on 2025/10/3.
+// Copyright (c) 2025 Flybird Games. All rights reserved.
+
 #pragma once
 
 #include "Base.hpp"
+
 #include <initializer_list>
 #include <utility>
 #include <vector>
 
 namespace neo {
 
+	/// A collection contains multiple statement nodes
     class CompoundStmt : public ASTStmt
     {
     public:
+        CompoundStmt();
         CompoundStmt(std::vector<ASTStmt*> stmts)
             : ASTStmt(StmtKind::kCompound)
             , statements{std::move( stmts )}
@@ -29,6 +35,7 @@ namespace neo {
     };
 
 
+	/// If-else statement AST node
     class IfStmt final : public ASTStmt
     {
     public:
@@ -48,6 +55,7 @@ namespace neo {
     };
 
 
+	/// while-loop statement AST node
     class WhileStmt : public ASTStmt
     {
     public:
@@ -65,6 +73,7 @@ namespace neo {
     };
 
 
+	/// for-loop statement AST node
     class ForStmt : public ASTStmt
     {
     public:
@@ -86,6 +95,7 @@ namespace neo {
     };
 
 
+	/// foreach-loop statement AST node
     class ForeachStmt : public ASTStmt
     {
     public:
@@ -103,6 +113,7 @@ namespace neo {
     };
 
 
+	/// Scope return statement AST node
     class ReturnStmt : public ASTStmt
     {
     public:
@@ -118,6 +129,7 @@ namespace neo {
     };
 
 
+	/// Loop break or scope break statement AST node
     class BreakStmt : public ASTStmt
     {
     public:
@@ -126,6 +138,7 @@ namespace neo {
     };
 
 
+	/// Loop continue or jump statement AST node
     class ContinueStmt : public ASTStmt
     {
     public:
@@ -134,6 +147,7 @@ namespace neo {
     };
 
 
+	/// Module import statement AST node for module system
     class ImportStmt : public ASTStmt 
     {
     public:
@@ -148,6 +162,7 @@ namespace neo {
     };
 
 
+	/// Declaration container for scope declaration statement
     class DeclStmt : public ASTStmt
     {
     public:
@@ -159,5 +174,20 @@ namespace neo {
 
     public:
         ASTDecl* declType;
+    };
+
+
+	/// Expression container for scope expression statement
+    class ExprStmt : public ASTStmt
+    {
+    public:
+        ExprStmt(ASTExpr* expr)
+            : ASTStmt(StmtKind::kExpr)
+            , expr {expr}
+        {}
+        ~ExprStmt() override = default;
+
+    public:
+        ASTExpr* expr;
     };
 }

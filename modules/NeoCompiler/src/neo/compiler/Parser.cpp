@@ -1,14 +1,17 @@
+// Created by cubevlmu on 2025/10/3.
+// Copyright (c) 2025 Flybird Games. All rights reserved.
+
 #include "Parser.hpp"
 
 #include "neo/ast/Type.hpp"
 #include "neo/ast/Decl.hpp"
-#include "neo/base/StringUtils.hpp"
 #include "neo/diagnose/Diagnostic.hpp"
 #include "neo/compiler/Lexer.hpp"
 #include "neo/compiler/Tokens.hpp"
 #include "ParsedFile.hpp"
 #include "neo/ast/Stmts.hpp"
 
+#include <nbase/utils/StringUtils.hpp>
 #include <sstream>
 #include <vector>
 
@@ -212,10 +215,18 @@ do { \
         else if (check(TokenType::kLBraces)) {
             // scope-based module decl
             // trigger scope decl parsing logic and make those decls as module's children
+            advance(); // eat '{'
 
-            auto r = parseScopeDecls();
-            CHECK_ERROR(r);
-            gd->children = r.value();
+            do {
+                if (check(TokenType::kRBraces)) {
+                    advance(); // eat '}'
+                    break;
+                } else {
+                    auto r = parseDecl();
+                    CHECK_ERROR(r);
+                    gd->children->decls.push_back(r.value());
+                }
+            } while(true);
         }
         else {
             // invalid syntax
@@ -264,24 +275,9 @@ do { \
         else if (check(TokenType::kLBraces)) {
             // end with '{'
 
-            std::vector<ASTStmt*> bodyStmts {};
-            do {
-                advance();
-                if (check(TokenType::kVar) || check(TokenType::kVal)) {
-                    auto r = parseVarDecl();
-                    CHECK_ERROR(r);
-                    bodyStmts.push_back(new DeclStmt(r.value()));
-                } else if (check(TokenType::kRBraces)) {
-                    advance();
-                    break;
-                } else {
-                    auto epr = parseExpr();
-                    CHECK_ERROR(epr);
-                    bodyStmts.push_back(epr.value());
-                }
-            } while(true);
-
-            return new FuncDecl(name, returnType, args.value(), new CompoundStmt(std::move(bodyStmts)));
+            auto r = parseScope();
+            CHECK_ERROR(r);
+            return new FuncDecl(name, returnType, args.value(), r.value());
         } else {
             return Result::failure("unexpected token after function head", ERRR());
         }
@@ -351,6 +347,53 @@ do { \
         }
     }
 
+    // modifier parser
+    // support all modifier register in s_modifier
+    // TESTED
+    Expected<ASTModifier> NParser::parseModifier()
+    {
+        ASTModifier mf{};
+
+        do {
+            if (std::find(&s_modifier[0], &s_modifier[7], current().type) == &s_modifier[7]) {
+                break;
+            }
+
+            switch (current().type)
+            {
+                case TokenType::kPrivate:
+                    CHECK_MODIFIER(mf.isPrivate, "private")
+                    mf.isPrivate = true;
+                    break;
+                case TokenType::kProtected:
+                    CHECK_MODIFIER(mf.isProtected, "protected")
+                    mf.isProtected = true;
+                    break;
+                case TokenType::kInternal:
+                    CHECK_MODIFIER(mf.isInternal, "internal")
+                    mf.isInternal = true;
+                    break;
+                case TokenType::kInline:
+                    CHECK_MODIFIER(mf.isInline, "inline")
+                    mf.isInline = true;
+                    break;
+                case TokenType::kStatic:
+                    CHECK_MODIFIER(mf.isStatic, "static")
+                    mf.isStatic = true;
+                    break;
+                case TokenType::kConst:
+                    CHECK_MODIFIER(mf.isConst, "const")
+                    mf.isConst = true;
+                    break;
+                default:break;
+            }
+
+            advance();
+        } while (true);
+
+        return mf;
+    }
+
 
 
     // fuction calling expression's argument list parser
@@ -381,7 +424,7 @@ do { \
 
     // function's argument parser
     // syntax like (xx : xx, xx : xx = xx, ...)
-    Expected<std::vector<VarDecl *>> NParser::parseFuncArgs() {
+    Expected<std::vector<VarDecl*>> NParser::parseFuncArgs() {
         // function argument parsing logic
         std::vector<VarDecl*> args{};
         std::vector<Attribute*> attrs{};
@@ -452,75 +495,27 @@ do { \
         return args;
     }
 
-    // declaration parser
-    // return with TopLevelDecls contains decls in it
-    Expected<TopLevelDecls*> NParser::parseScopeDecls()
-    {
+    // scope statments parser
+    // syntax like { ... }
+    Expected<CompoundStmt*> NParser::parseScope() {
         if (!check(TokenType::kLBraces)) {
             return nullptr;
         }
-        advance();
+        advance(); // eat '{'
+        auto gd = ScopeGuard(new CompoundStmt());
 
-        // parse content logic
-        auto gd = ScopeGuard(new TopLevelDecls());
         do {
             if (check(TokenType::kRBraces)) {
-                advance();
+                advance(); // eat '}'
                 break;
             } else {
-                auto r = parseDecl();
+                auto r = parseStmt();
                 CHECK_ERROR(r);
-                gd->decls.push_back(r.value());
+                gd->statements.push_back(r.value());
             }
         } while(true);
 
         return gd.getPtr();
-    }
-
-    // modifier parser
-    // support all modifier register in s_modifier
-    Expected<ASTModifier> NParser::parseModifier()
-    {
-        ASTModifier mf{};
-
-        do {
-            if (std::find(&s_modifier[0], &s_modifier[7], current().type) == &s_modifier[7]) {
-                break;
-            }
-
-            switch (current().type)
-            {
-                case TokenType::kPrivate:
-                    CHECK_MODIFIER(mf.isPrivate, "private")
-                    mf.isPrivate = true;
-                    break;
-                case TokenType::kProtected:
-                    CHECK_MODIFIER(mf.isProtected, "protected")
-                    mf.isProtected = true;
-                    break;
-                case TokenType::kInternal:
-                    CHECK_MODIFIER(mf.isInternal, "internal")
-                    mf.isInternal = true;
-                    break;
-                case TokenType::kInline:
-                    CHECK_MODIFIER(mf.isInline, "inline")
-                    mf.isInline = true;
-                    break;
-                case TokenType::kStatic:
-                    CHECK_MODIFIER(mf.isStatic, "static")
-                    mf.isStatic = true;
-                    break;
-                case TokenType::kConst:
-                    CHECK_MODIFIER(mf.isConst, "const")
-                    mf.isConst = true;
-                    break;
-                default:break;
-            }
-
-            advance();
-        } while (true);
-
-        return mf;
     }
 
     // parse attributes on decls
@@ -1034,6 +1029,52 @@ do { \
         return gd.getPtr();
     }
 
+    // Statement parser
+    // syntax ...
+    Expected<ASTStmt*> NParser::parseStmt() {
+        ASTStmt* result = nullptr;
+
+        switch (current().type)
+        {
+            case TokenType::kIf:
+                break;
+            case TokenType::kWhile:
+                break;
+            case TokenType::kFor:
+                break;
+            case TokenType::kReturn:
+                break;
+            case TokenType::kContinue:
+                break;
+            case TokenType::kTry:
+                break;
+            case TokenType::kThrow:
+                break;
+            case TokenType::kBreak:
+                break;
+
+            default:
+                // fallback : decl parsing
+                auto rDecl = parseDecl();
+                CHECK_ERROR(rDecl);
+                if (rDecl.value() == nullptr) {
+                    // fallback : expression statement
+
+                    auto rExpr = parseExpr();
+                    CHECK_ERROR(rExpr);
+                    if (!check(TokenType::kSemicolon)) {
+                        return Result::failure("expression line should end with semi-colon ';' ", ERRR());
+                    }
+                    result = new ExprStmt(rExpr.value());
+                } else {
+                    result = new DeclStmt(rDecl.value());
+                }
+                break;
+        }
+
+        return result;
+    }
+
     Expected<InterfaceDecl*> NParser::parseInterface() {
         if (check(TokenType::kInterface)) {
             return nullptr;
@@ -1086,6 +1127,7 @@ do { \
         return nullptr;
     }
 
+
     bool NParser::parse()
     {
         auto& output = m_args.output;
@@ -1119,6 +1161,7 @@ do { \
 
         return true;
     }
+
 
 
 #endif

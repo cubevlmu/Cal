@@ -3,7 +3,7 @@
 
 #include "CmdParser.hpp"
 
-#include "neo/base/StringUtils.hpp"
+#include "nbase/utils/StringUtils.hpp"
 
 namespace neo {
 

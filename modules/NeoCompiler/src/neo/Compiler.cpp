@@ -1,9 +1,12 @@
+// Created by cubevlmu on 2025/10/3.
+// Copyright (c) 2025 Flybird Games. All rights reserved.
+
 #include "Compiler.hpp"
 
-#include "neo/base/StringUtils.hpp"
-#include "neo/base/CmdParser.hpp"
-#include "neo/base/Timer.hpp"
-#include "neo/base/Logger.hpp"
+#include <nbase/utils/StringUtils.hpp>
+#include <nbase/base/Logger.hpp>
+#include <nbase/utils/CmdParser.hpp>
+#include <nbase/utils/Timer.hpp>
 
 #include <iostream>
 
@@ -32,7 +35,7 @@ namespace neo {
     int NCompiler::runCompiler() {
         if (s_cfg.sourceDir.empty()) {
             LogError("No source dir input! Compiler halt.");
-            return 0;
+            return 1;
         }
 
         NTimer t{};
@@ -57,11 +60,11 @@ namespace neo {
         t.end();
         if (!r) {
             LogError("Result occurrenced in compile process! Compiler halt in {} s.", t.secondTime());
+			return 1;
         } else {
             LogInfo("Compiler process end in {} s.", t.secondTime());
+			return 0;
         }
-
-        return 0;
     }
 
 

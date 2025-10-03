@@ -159,4 +159,4 @@
 #	define NE_PURE
 #endif
 
-#include <neo/definations.hpp>
+#include <nbase/definitions.hpp>

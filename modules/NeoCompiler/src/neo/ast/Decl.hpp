@@ -1,3 +1,6 @@
+// Created by cubevlmu on 2025/10/3.
+// Copyright (c) 2025 Flybird Games. All rights reserved.
+
 #pragma once
 
 #include <utility>
@@ -7,6 +10,7 @@
 
 namespace neo {
 
+	/// Variable declaration AST node contains non-changable and changable
     class VarDecl : public ASTDecl
     {
     public:
@@ -32,6 +36,7 @@ namespace neo {
     };
 
 
+	/// Function declaration AST node for scope based function declare
     class FuncDecl : public ASTDecl
     {
     public:
@@ -57,6 +62,7 @@ namespace neo {
     };
 
 
+	/// Field declaration AST node
     class FieldDecl : public ASTDecl
     {
     public:
@@ -74,14 +80,20 @@ namespace neo {
         ~FieldDecl() override = default;
 
     public:
+		/// Field's name
         std::string name;
+		/// Setter function of current field.
         std::string setFuncName;
+		/// Getter function of current field.
         std::string getFuncName;
-        ASTTypeNode* type = nullptr;
+		/// Type hint of current field. Nullptr for auto deducate from value.
+		ASTTypeNode* type = nullptr;
+		/// Initial value of current field. Nullptr for non defined initial statement.
         ASTExpr* init = nullptr;
     };
 
 
+	/// Class declaration AST node
     class ClassDecl : public ASTDecl
     {
     public:
@@ -95,17 +107,26 @@ namespace neo {
         ~ClassDecl() override = default;
 
     public:
+		/// Class's name
         std::string name;
+		/// Super classes of current class
         std::vector<ASTTypeNode*> baseClasses;
+		/// Sub-classes of current class
         std::vector<ASTDecl*> subDataTypes;
+		/// Fields of current class
         std::vector<FieldDecl*> fields;
+		/// Variables of current class
         std::vector<VarDecl*> variables;
+		/// Functions of current class
         std::vector<FuncDecl*> functions;
+		/// Contructors of current class.
         std::vector<FuncDecl*> ctors;
+		/// Destructor of current class. Nullptr for non defined.
         FuncDecl* dtors = nullptr;
     };
 
 
+	/// Struct declaration AST node
     class StructDecl : public ASTDecl
     {
     public:
@@ -117,13 +138,15 @@ namespace neo {
         }
         ~StructDecl() override = default;
 
-    public:
+	public:
+		/// Struct's name
         std::string name;
+		/// Variables in struct's body
         std::vector<VarDecl*> variables;
-        std::vector<FieldDecl*> fields;
     };
 
 
+	/// Interface declaration AST node
     class InterfaceDecl : public ASTDecl
     {
     public:
@@ -136,11 +159,14 @@ namespace neo {
         ~InterfaceDecl() override;
 
     public:
+		/// Name of current interface class
         std::string name;
+		/// Super classes of this interface class
         std::vector<FuncDecl*> children;
     };
 
 
+	/// Enum declaration AST node
     class EnumDecl : public ASTDecl
     {
     public:
@@ -154,12 +180,16 @@ namespace neo {
         ~EnumDecl() override;
 
     public:
+		/// Name of current Enum class
         std::string name;
+		/// Enum items of current enum. Presentate as variable AST node to support enum value assign.
         std::vector<VarDecl*> children;
+		/// Basic type inherit for current enum class. Nullptr for i32 based enum.
         ASTTypeNode* baseType = nullptr;
     };
 
 
+	/// Module declaration AST node
     class ModuleDecl : public ASTDecl
     {
     public:
@@ -172,11 +202,14 @@ namespace neo {
         ~ModuleDecl() override;
 
     public:
+		/// Name of current module.
         std::string name;
+		/// Body of current module. Nullptr for empty module scope or placeholder module declaration.
         class TopLevelDecls* children = nullptr;
     };
 
 
+	/// Top level declaration for TopLevel Scripts
     class TopLevelDecls : public ASTDecl 
     {
     public:
@@ -184,6 +217,7 @@ namespace neo {
         ~TopLevelDecls() override;
     
     public:
+		/// Children declarations for current container.
         std::vector<ASTDecl*> decls;
     };
 }

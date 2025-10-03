@@ -1,6 +1,9 @@
+// Created by cubevlmu on 2025/10/3.
+// Copyright (c) 2025 Flybird Games. All rights reserved.
+
 #pragma once
 
-#include "neo/common.hpp"
+#include <nbase/common.hpp>
 
 #include "neo/ast/Type.hpp"
 #include "neo/ast/Stmts.hpp"
@@ -60,7 +63,8 @@ namespace neo {
 
     private:
         Expected<void> parseRoot();
-        
+
+        Expected<ASTStmt*> parseStmt();
         Expected<ASTExpr*> parseExpr();
 
         Expected<ASTTypeNode*> parseType();
@@ -69,7 +73,7 @@ namespace neo {
         Expected<ModuleDecl*> parseModule();
 
         Expected<ASTDecl*> parseDecl();
-        Expected<TopLevelDecls*> parseScopeDecls();
+        Expected<CompoundStmt*> parseScope();
 
         Expected<ClassDecl*> parseClass();
         Expected<EnumDecl*> parseEnum();
@@ -93,5 +97,6 @@ namespace neo {
         NLexer* m_lexer;
 
         static TokenType s_modifier[8];
+        static TokenType s_declStmt[];
     };
 }

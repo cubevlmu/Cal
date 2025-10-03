@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include <neo/common.hpp>
+#include <nbase/common.hpp>
 
 #include <unordered_map>
 #include <string>
@@ -20,15 +20,16 @@ namespace neo {
         };
 
     public:
+		/// Construct CmdParser with size of arguments and argument array pointer
         NCmdParser(i32 size, char** argv);
         ~NCmdParser();
 
-        /// return false if any syntax result happend
+        /// Return false if any syntax result happend
         bool parse();
 
-        /// register boolean switch receiver
+        /// Register boolean typed receiver
         void regBool(const char* flag, bool*);
-        /// register string value receiver
+        /// Register string typed receiver
         void regStr(const char* flag, std::string&);
 
     private:

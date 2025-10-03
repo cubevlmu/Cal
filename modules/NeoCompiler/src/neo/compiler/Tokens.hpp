@@ -1,6 +1,9 @@
+// Created by cubevlmu on 2025/10/3.
+// Copyright (c) 2025 Flybird Games. All rights reserved.
+
 #pragma once
 
-#include "neo/common.hpp"
+#include <nbase/common.hpp>
 
 #include "neo/diagnose/SourceLoc.hpp"
 

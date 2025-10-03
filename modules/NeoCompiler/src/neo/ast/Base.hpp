@@ -1,12 +1,14 @@
+// Created by cubevlmu on 2025/10/3.
+// Copyright (c) 2025 Flybird Games. All rights reserved.
+
 #pragma once
 
 #include <string>
 #include <string_view>
 #include <vector>
+#include <nbase/base/Serializer.hpp>
 
-#include "neo/common.hpp"
 #include "neo/diagnose/SourceLoc.hpp"
-#include "neo/base/Serializer.hpp"
 
 namespace neo {
 
@@ -69,7 +71,8 @@ namespace neo {
         kBreak,
         kContinue,
         kImport,
-        kDecl
+        kDecl,
+        kExpr
     };
     std::string_view getTypeString(StmtKind);
     class ASTStmt* createStmt(StmtKind);
@@ -106,7 +109,9 @@ namespace neo {
         kMemberAccess,
         kVar,
         kCast,
-        kNew
+        kNew,
+		kStringLit,
+		kCharLit
     };
     std::string_view getTypeString(ExprKind);
     class ASTExpr* createExpr(ExprKind);

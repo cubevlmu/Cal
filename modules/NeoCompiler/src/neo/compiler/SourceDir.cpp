@@ -3,8 +3,8 @@
 
 #include "SourceDir.hpp"
 
-#include "neo/base/StringUtils.hpp"
-#include "neo/base/Logger.hpp"
+#include <nbase/utils/StringUtils.hpp>
+#include <nbase/base/Logger.hpp>
 
 #include <filesystem>
 namespace fs = std::filesystem;
