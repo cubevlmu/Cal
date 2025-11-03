@@ -1,4 +1,4 @@
-// type test
+// type test --- TESTED
 fun a() {
 var a : i32[];
 var b : i32[10];

@@ -56,6 +56,9 @@ namespace neo {
 				if constexpr (std::is_same_v<T, f64>)
 					return m_value.f64;
 				break;
+		    case LiteralType::kF128:
+				if constexpr (std::is_same_v<T, f128>)
+				    return m_value.f128;
 			default:
 				NE_ASSERT(false && "type no support");
 		}
@@ -103,8 +106,13 @@ namespace neo {
 			m_value.f64 = num;
 			m_type = LiteralType::kF64;
 		}
+		else if constexpr (std::is_same_v<T, f128>)
+		{
+			m_value.f128 = num;
+			m_type = LiteralType::kF128;
+		}
 		else {
-			NE_ASSERT(false && "not support");
+				NE_ASSERT(false && "not support");
 		}
 	}
 

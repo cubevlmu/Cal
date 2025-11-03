@@ -158,7 +158,7 @@ val globalValTest : i32 = 10;
 
 fun tryCatchTest() {
     try {
-        throw Exception("Test");
+        throw new Exception("Test");
     } catch(e : Exception) {
         Console.println(e.Message);
         e.printStackTrace();

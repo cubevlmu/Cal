@@ -45,6 +45,7 @@ namespace neo {
 
     class NLexer
     {
+		friend class NParser;
     public:
         NLexer(NSourceFile* file);
         ~NLexer();

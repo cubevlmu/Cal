@@ -379,51 +379,70 @@ namespace neo {
     }
 
 
-    bool NLexer::lexNumber()
-    {
-        u32 start = m_lex_idx;
-//        bool isFloat;
+	bool NLexer::lexNumber()
+	{
+		u32 start = m_lex_idx;
+		bool isFloat = false;
+		bool isHex = false;
 
-        char first = getChar(m_lex_idx);
-        if (first == '0') {
-            char next = getChar(m_lex_idx + 1);
-            if (next == 'X' || next == 'x') {
-                move(2);
-                while (m_lex_idx < m_lex_max && isHexDigit(m_src[m_lex_idx]) && IS_NEW_LINE(m_src[m_lex_idx])) {
-                    move();
-                }
-                auto hex = subString(start, m_lex_idx - start);
-                pushToken(TokenType::kHexLit, hex);
-                return true;
-            }
-        }
-        if (!isDigit(first)) {
-            return false;
-        }
-        while (m_lex_idx < m_lex_max) {
-            char current = m_src[m_lex_idx];
-            if (!isDigit(current) || current == '\n' || current == '\r' || current == 0) {
-                break;
-            }
-//TODO            else if (current == '.') {
-//                if (isFloat) {
-//                    return false;
-//                }
-//            }
-            move();
-        }
-        auto number = subString(start, m_lex_idx - start);
-        if (number.find('.') != std::string::npos) {
-            pushToken(TokenType::kFloatLit, number);
-        }
-        else {
-            pushToken(TokenType::kIntLit, number);
-        }
-        return true;
-    }
+		char first = getChar(m_lex_idx);
+		if (first == '0') {
+			char next = getChar(m_lex_idx + 1);
+			if (next == 'x' || next == 'X') {
+				move(2);
+				isHex = true;
+				while (m_lex_idx < m_lex_max && isHexDigit(m_src[m_lex_idx])) {
+					move();
+				}
+			}
+		}
+
+		while (m_lex_idx < m_lex_max) {
+			char c = m_src[m_lex_idx];
+			if (isDigit(c)) {
+				move();
+			}
+			else if (c == '.' && !isFloat) {
+				// only allow one dot in float number
+				isFloat = true;
+				move();
+			}
+			else if ((c == 'e' || c == 'E') && !isHex) {
+				// 1e10 3.5E-2
+				isFloat = true;
+				move();
+				if (m_src[m_lex_idx] == '+' || m_src[m_lex_idx] == '-')
+					move();
+			}
+			else {
+				break;
+			}
+		}
+
+		// scan suffix（u/U, l/L, f/F）
+		u32 suffixStart = m_lex_idx;
+		while (m_lex_idx < m_lex_max && isalpha(m_src[m_lex_idx])) {
+			move();
+		}
+
+		auto text = subString(start, m_lex_idx - start);
+		auto suffix = subString(suffixStart, m_lex_idx - suffixStart);
+
+		// check token type
+		TokenType type;
+		if (isFloat || suffix.find_first_of("fFlL") != std::string::npos)
+			type = TokenType::kFloatLit;
+		else if (isHex)
+			type = TokenType::kHexLit;
+		else
+			type = TokenType::kIntLit;
+
+		pushToken(type, text);
+		return true;
+	}
 
 
-    bool NLexer::lexIdentifier()
+	bool NLexer::lexIdentifier()
     {
         u32 start = m_lex_idx;
 

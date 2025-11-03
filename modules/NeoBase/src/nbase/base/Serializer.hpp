@@ -169,7 +169,7 @@ namespace neo {
             NE_ASSERT(false);
             return -1;
         }
-        NE_FORCE_INLINE psize getPos() override {
+        NE_FORCE_INLINE psize getPos() noexcept override {
             return m_stream.tellp();
         }
         NE_FORCE_INLINE void setPos(psize pos) override {

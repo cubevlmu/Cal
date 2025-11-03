@@ -1,0 +1,9 @@
+// environmental functions
+
+unsafe extern fun __env_mem_alloc(size : u64, align : u32) : u8*;
+unsafe extern fun __env_mem_realloc(ptr : u8*, size : u64, newSize : u64, align : u32) : u8*;
+unsafe extern fun __env_mem_free(ptr : u8*);
+
+unsafe extern fun __vm_new_object<T>() : T*;
+unsafe extern fun __vm_del_object<T>(t : T*);
+//...

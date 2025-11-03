@@ -113,7 +113,9 @@ namespace neo {
 
         kTry, kCatch, kFinally, kThrow,
         kBreak, kContinue,
-        kNew
+        kNew,
+		kCast,
+		kThis, kSuper
     };
 
 

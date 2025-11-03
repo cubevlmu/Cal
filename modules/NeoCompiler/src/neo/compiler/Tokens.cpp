@@ -110,9 +110,12 @@ namespace neo {
 
             "Try", "Catch", "Finally", "Throw", // kTry, kCatch, kFinally, kThrow
             "Break", "Continue",               // kBreak, kContinue
-            "New"                               // kNew
+            "New",                               // kNew
+			"Cast",        // cast
+			"This",        // this
+			"Super"        // super
     };
-    static_assert(sizeof(s_typeStrings) / sizeof(s_typeStrings[0]) == static_cast<size_t>(TokenType::kNew) + 1,
+    static_assert(sizeof(s_typeStrings) / sizeof(s_typeStrings[0]) == static_cast<size_t>(TokenType::kSuper) + 1,
                   "s_typeStrings array size does not match TokenType enum count");
 
 
@@ -151,7 +154,10 @@ namespace neo {
             {"break",     TokenType::kBreak},
             {"new",       TokenType::kNew},
             {"extern",    TokenType::kExtern},
-            {"final",     TokenType::kFinal}
+            {"final",     TokenType::kFinal},
+            {"super",     TokenType::kSuper},
+            {"this",      TokenType::kThis},
+            {"cast",      TokenType::kCast}
     };
 
 

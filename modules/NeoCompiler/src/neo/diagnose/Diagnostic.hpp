@@ -119,36 +119,29 @@ namespace neo {
     };
 
 
+	/// Result of compiler function's status
     class Result
     {
     public:
         Result() = default;
 
-        static Result success() { return {}; }
-        static Result failure(std::string msg) { return Result(std::move(msg)); }
+        static Result success() { return Result{"", true}; }
+        static Result failure(std::string msg) { return Result(std::move(msg), false); }
         static Result failure(std::string msg, DiagnosticCollector* c, NToken& t, NSourceFile* f) {
             c->error(t.location(f), msg);
-            return Result(std::move(msg));
+            return Result(std::move(msg), false);
         }
 
-        bool hasError() const { return !m_messages.empty(); }
-        const std::vector<std::string>& messages() const { return m_messages; }
-
-        void append(std::string msg) {
-            m_messages.push_back(std::move(msg));
-        }
-
-        Result& operator<<(const std::string& msg) {
-            append(msg);
-            return *this;
-        }
+        bool hasError() const { return !m_isOk; }
 
     private:
-        std::vector<std::string> m_messages;
+		bool m_isOk = false;
+		std::string m_msg = "";
 
-        explicit Result(std::string msg) {
-            m_messages.push_back(std::move(msg));
-        }
+        explicit Result(std::string msg, bool isOk = false)
+		    : m_msg {std::move(msg)}
+			, m_isOk {isOk}
+		{}
     };
 
 

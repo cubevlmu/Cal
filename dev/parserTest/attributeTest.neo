@@ -1,0 +1,7 @@
+/// Attribute test case
+
+[Test]
+[Test2(10)]
+[Test3(a, b)]
+fun a() {
+}

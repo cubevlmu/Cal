@@ -50,7 +50,12 @@ namespace neo {
         "kMemberAccess",
         "kVar",
         "kCast",
-        "kNew"
+        "kNew",
+		"kNull",
+		"kLambda",
+		"kThis",
+		"kSuper",
+		"kArrayLit"
     };
     std::string_view getTypeString(ExprKind type) {
         return s_ExprKindStrings[(int)type];

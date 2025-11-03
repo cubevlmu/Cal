@@ -8,6 +8,9 @@
 #include <nbase/utils/CmdParser.hpp>
 #include <nbase/utils/Timer.hpp>
 
+#include <nbase/types/String.hpp>
+#include <nbase/types/Array.hpp>
+
 #include <iostream>
 
 namespace neo {
@@ -39,11 +42,13 @@ namespace neo {
         }
 
         NTimer t{};
-        std::vector<std::string> out {};
-        splitStr(out, s_cfg.sourceDir, ';');
 
-        for (auto& str : out) {
-            NSourceDir dir {str.c_str()};
+		NString path {s_cfg.sourceDir.c_str()};
+		NArray<NString> results{};
+		path.split(';', results);
+
+        for (auto& str : results) {
+            NSourceDir dir {str.get()};
             if (!dir.collect()) {
                 LogDebug("No source file in dir {}", str);
             }

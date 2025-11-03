@@ -10,6 +10,7 @@
 #include "neo/compiler/Tokens.hpp"
 #include "ParsedFile.hpp"
 #include "neo/ast/Stmts.hpp"
+#include "neo/ast/Exprs.hpp"
 
 #include <nbase/utils/StringUtils.hpp>
 #include <sstream>
@@ -239,20 +240,24 @@ do { \
     // function declaration parser
     // syntax like xxx fun xxx(...) xxx {...}
     // TESTED
-    Expected<FuncDecl*> NParser::parseFunc()
+    Expected<FuncDecl*> NParser::parseFunc(bool isLambda)
     {
         if (!check(TokenType::kFun) && expect(TokenType::kIdentifier)) {
             return Result::failure(msg("unexpected token for function declare : ", current().value, " ", peek().value), ERRR());
         }
         advance();
+	    std::string name{};
 
-        // function name parsing logic
-        std::string name = current().value;
+		if (!isLambda)
+		{
+			// function name parsing logic
+			name = current().value;
+			advance(); // Skip name
+		}
 
-        if (!expect(TokenType::kLParen)) {
-            return Result::failure(msg("function declare expect '(' for function arguments but got '", peek().value, "'"), ERRR());
-        }
-        advance();
+	    if (!check(TokenType::kLParen)) {
+		    return Result::failure(msg("function declare expect '(' for function arguments but got '", current().value, "'"), ERRR());
+	    }
 
         // function argument parsing
         auto args = parseFuncArgs();
@@ -398,6 +403,7 @@ do { \
 
     // fuction calling expression's argument list parser
     // syntax like xxx(aa,bb,cc,...)
+	//
     Expected<std::vector<ASTExpr*>> NParser::parseFuncCallArgs()
     {
         std::vector<ASTExpr*> args{};
@@ -408,9 +414,9 @@ do { \
         do {
             advance();
             if (check(TokenType::kComma)) {
-                advance();
+                advance(); // Skip ','
             } else if (check(TokenType::kRParen)) {
-                advance();
+                advance(); // Skip ')'
                 break;
             } else {
                 auto r = parseExpr();
@@ -424,12 +430,16 @@ do { \
 
     // function's argument parser
     // syntax like (xx : xx, xx : xx = xx, ...)
-    Expected<std::vector<VarDecl*>> NParser::parseFuncArgs() {
-        // function argument parsing logic
-        std::vector<VarDecl*> args{};
+    Expected<std::vector<VarDecl*>> NParser::parseFuncArgs()
+	{
+        // function argument parsing logic;
+
+		std::vector<VarDecl*> args{};
         std::vector<Attribute*> attrs{};
 
-        advance(); // eat left paren '('
+	    if (!check(TokenType::kLParen))
+		    return args;
+        advance(); // Skip '('
         do {
             if (check(TokenType::kLBracket)) {
                 // parse attributes
@@ -482,12 +492,12 @@ do { \
             } else if (check(TokenType::kComma)) {
                 // skip comma
 
-                advance();
+                advance(); // Skip ','
                 continue;
             } else if (check(TokenType::kRParen)) {
                 // end loop when matched ')'
 
-                advance();
+                advance(); // Skip ')'
                 break;
             }
         } while (true);
@@ -535,14 +545,15 @@ do { \
             std::string name = current().value;
             ScopeGuard g{ new Attribute {} };
             g->name = name;
+	        advance(); // Skip name
 
             // check '[xxx(' <- and parse args
-            if (!expect(TokenType::kLParen) && !expect(TokenType::kRBracket)) {
-                return attrs;
-            }
-            advance();
-
-            if (check(TokenType::kLParen)) {
+			if (check(TokenType::kRBracket)) {
+				attrs.push_back(g.getPtr());
+				advance(); // Skip ']'
+				continue;
+			}
+			else if (check(TokenType::kLParen)) {
                 // parse attribute's arguments
 
                 auto r = parseFuncCallArgs();
@@ -554,14 +565,12 @@ do { \
                 }
                 attrs.push_back(g.getPtr());
             }
-            else if (check(TokenType::kRBracket)) {
-                attrs.push_back(g.getPtr());
-            }
             else {
                 CLEARUP(attrs);
                 return Result::failure(msg("unexpect token '", current().value, "' after attribute attach's name"), ERRR());
             }
-        } while (expect(TokenType::kLBracket));
+        } while (check(TokenType::kLBracket));
+		auto c = current();
 
         return attrs;
     }
@@ -665,7 +674,6 @@ do { \
         std::string name = current().value;
 
         // super classes parsing
-        std::vector<ASTTypeNode*> baseClasses{};
         auto gd = ScopeGuard<ClassDecl>(new ClassDecl(name, {}));
 
         // pre-def for body parsing
@@ -675,22 +683,9 @@ do { \
         if (check(TokenType::kColon)) {
             // parse base class types
 
-            do {
-                advance();
-                if (check(TokenType::kLBraces) || check(TokenType::kSemicolon)) {
-                    break;
-                }
-                else if (check(TokenType::kComma)) {
-                    advance();
-                    break;
-                }
-                else {
-                    auto tp = parseType();
-                    CHECK_ERROR(tp);
-                    baseClasses.push_back(tp.value());
-                }
-            } while(true);
-            gd->baseClasses = std::move(baseClasses);
+            auto pR = parseParents();
+			CHECK_ERROR(pR);
+            gd->baseClasses = std::move(pR.value());
 
             if (check(TokenType::kLBraces)) {
                 goto parseBody;
@@ -819,7 +814,7 @@ do { \
         if (check(TokenType::kColon)) {
             // parse type hint
 
-            advance();
+            advance(); // EAT Colon
             auto r = parseType();
             CHECK_ERROR(r);
             gd->type = r.value();
@@ -828,6 +823,13 @@ do { \
             if (check(TokenType::kEq)) {
                 goto parseAssign;
             }
+			// EAT Semicolon
+			else if (check(TokenType::kSemicolon)) {
+				advance();
+			}
+			else {
+				return Result::failure("expression is not closed : var xxx : xxx <-- need ';' to close the line", ERRR());
+			}
         }
         else if (check(TokenType::kEq)) {
             // parse assign expression
@@ -839,8 +841,9 @@ do { \
 
             // check end of line
             if (!check(TokenType::kSemicolon)) {
-                return Result::failure("expression line is not closed : var xxx = xxx <-- need ';' to closed", ERRR());
+                return Result::failure("expression line is not closed : var xxx = xxx <-- need ';' to close the line", ERRR());
             }
+			advance(); // EAT Semicolon
         }
         else {
             return Result::failure("variable declare without type hint is not allow! var xxx ... <--", ERRR());
@@ -851,7 +854,8 @@ do { \
 
     // enum parser
     // syntax like 'enum XXX : XXX { ... }'
-    Expected<EnumDecl*> NParser::parseEnum() {
+    Expected<EnumDecl*> NParser::parseEnum()
+	{
         if (!check(TokenType::kEnum)) {
             return nullptr;
         }
@@ -1031,87 +1035,192 @@ do { \
 
     // Statement parser
     // syntax ...
-    Expected<ASTStmt*> NParser::parseStmt() {
+    Expected<ASTStmt*> NParser::parseStmt()
+	{
         ASTStmt* result = nullptr;
 
         switch (current().type)
         {
             case TokenType::kIf:
-                break;
+            {
+				// Parse if statement.
+
+	            auto rIf = parseIfStmt();
+	            CHECK_ERROR(rIf);
+				result = rIf.value();
+
+				break;
+            }
             case TokenType::kWhile:
-                break;
+            {
+				// Parse while statement
+
+				auto rWhile = parseWhileStmt();
+				CHECK_ERROR(rWhile);
+				result = rWhile.value();
+
+	            break;
+            }
             case TokenType::kFor:
-                break;
+            {
+				// Parse for loop statement
+
+				auto rFor = parseForStmt();
+				CHECK_ERROR(rFor);
+				result = rFor.value();
+
+	            break;
+            }
             case TokenType::kReturn:
-                break;
+            {
+				// Parse return statement.
+
+				auto rRtn = parseReturnStmt();
+				CHECK_ERROR(rRtn);
+				result = rRtn.value();
+
+	            break;
+            }
             case TokenType::kContinue:
-                break;
-            case TokenType::kTry:
-                break;
-            case TokenType::kThrow:
-                break;
+            {
+				// Parse continue statement.
+				advance(); // Skip 'continue'
+
+				if (!check(TokenType::kSemicolon))
+					return Result::failure("need ; after continue to close the statement.", ERRR());
+				advance(); // Skip ';'
+
+				result = new ContinueStmt();
+
+	            break;
+            }
+			case TokenType::kTry:
+			{
+				// Parse try-catch statement.
+
+				auto rTry = parseTryCatch();
+				CHECK_ERROR(rTry);
+				result = rTry.value();
+
+				break;
+			}
+			case TokenType::kThrow:
+			{
+				// Parse throw expression.
+				advance(); //Skip 'throw'
+
+				auto rTro = parseExpr();
+				CHECK_ERROR(rTro);
+				result = new ThrowStmt(rTro.value());
+
+				break;
+			}
             case TokenType::kBreak:
-                break;
-
+            {
+				// Parse break statement.
+				advance(); // Skip 'break'
+				result = new BreakStmt{};
+	            break;
+            }
             default:
-                // fallback : decl parsing
-                auto rDecl = parseDecl();
-                CHECK_ERROR(rDecl);
-                if (rDecl.value() == nullptr) {
-                    // fallback : expression statement
+            {
+	            // fallback : decl parsing
+	            auto rDecl = parseDecl();
+	            CHECK_ERROR(rDecl);
+	            if (rDecl.value() == nullptr)
+	            {
+		            // fallback : expression statement
 
-                    auto rExpr = parseExpr();
-                    CHECK_ERROR(rExpr);
-                    if (!check(TokenType::kSemicolon)) {
-                        return Result::failure("expression line should end with semi-colon ';' ", ERRR());
-                    }
-                    result = new ExprStmt(rExpr.value());
-                } else {
-                    result = new DeclStmt(rDecl.value());
-                }
-                break;
+		            auto rExpr = parseExpr();
+		            CHECK_ERROR(rExpr);
+		            if (!check(TokenType::kSemicolon))
+		            {
+			            return Result::failure("expression line should end with semi-colon ';' ", ERRR());
+		            }
+		            result = new ExprStmt(rExpr.value());
+	            }
+	            else
+	            {
+		            result = new DeclStmt(rDecl.value());
+	            }
+	            break;
+            }
         }
 
         return result;
     }
 
+	// Interface parser
+	// Syntax like : [...] interface XXX { ... }
     Expected<InterfaceDecl*> NParser::parseInterface() {
-        if (check(TokenType::kInterface)) {
+        if (!check(TokenType::kInterface)) {
             return nullptr;
         }
-        advance();
+        advance(); // Skip 'interface'
 
         // parse interface's name
         if (!check(TokenType::kIdentifier)) {
             return Result::failure("unexpected token after interface keyword : interface ... <--", ERRR());
         }
-        std::string_view name = current().value;
-        auto gd = ScopeGuard(new InterfaceDecl(name));
-        advance();
+        auto gd = ScopeGuard(new InterfaceDecl(current().value));
+        advance(); // Skip name
 
         if (check(TokenType::kLBraces)) {
-            // parse interface body
+            // Parse interface's body
+	        advance(); // Skip '{'
+
+			ASTModifier md {};
+			std::vector<Attribute*> attr {};
 
             do {
-                advance();
-                if (!check(TokenType::kIdentifier)) {
+				if (check(TokenType::kLBracket)) {
+					// Parse Attribute
+
+					auto rA = parseAttributes();
+					CHECK_ERROR(rA);
+					attr = rA.value();
+
+				} else if (isModifier(current().type)) {
+					// Parse modifier if matched.
+
+					auto r = parseModifier();
+					CHECK_ERROR(r);
+					md = r.value();
+
+				} else if (check(TokenType::kIdentifier)) {
+					// Parse function item
+
+					std::string_view func_name = current().value;
+					advance(); // Skip function's name
+
+					if (!check(TokenType::kLParen)) {
+						return Result::failure("unexpected token after function's name", ERRR());
+					}
+					auto rAgs = parseFuncArgs();
+					CHECK_ERROR(rAgs);
+					auto fnc = new FuncDecl();
+					fnc->name = func_name;
+					fnc->modifier = std::move(md);
+					md = ASTModifier {};
+					fnc->attributes = std::move(attr);
+					attr = std::vector<Attribute*> {};
+
+					gd->children.push_back(fnc);
+
+					if (!check(TokenType::kSemicolon)) {
+						return Result::failure("function declare was not closed", ERRR());
+					}
+					advance(); // Skip ';'
+
+				} else {
                     return Result::failure("unexpected identifier in interface body", ERRR());
                 }
-
-                ASTModifier md {};
-                auto r = parseModifier();
-                CHECK_ERROR(r);
-                md = r.value();
-
-                std::string_view func_name = current().value;
-                advance();
-
-
             } while(true);
-        } else if (check(TokenType::kSemicolon)) {
-            // parse interface defination
 
-            advance();
+        } else if (check(TokenType::kSemicolon)) {
+            // Parse interface defination
+            advance(); // Skip ';'
+
         } else {
             return Result::failure("unexpected token after interface's name : interface xxx ... <--", ERRR());
         }
@@ -1119,13 +1228,587 @@ do { \
         return gd.getPtr();
     }
 
+	// Struct parser
+	// Syntax like : [...] struct XXX { ... }
     Expected<StructDecl *> NParser::parseStruct() {
-        return nullptr;
+		if (!check(TokenType::kStruct))
+			return nullptr;
+		advance(); // Skip 'struct'
+
+		// parse struct's name
+		if (!check(TokenType::kIdentifier)) {
+			return Result::failure("unexpected token after struct keyword : struct ... <--", ERRR());
+		}
+	    auto gd = ScopeGuard(new StructDecl(current().value));
+		advance(); // Skip name
+
+		if (check(TokenType::kColon)) {
+			// Fallback:
+			return Result::failure("Struct not support with parent classes!", ERRR());
+		} else if (check(TokenType::kLBraces)) {
+			// Parse body
+			advance(); // Skip '{'
+
+			Attribute attr {};
+			ASTModifier md {};
+
+			do {
+				if (check(TokenType::kVal) || check(TokenType::kVar)) {
+					// Parse variable
+
+					auto var = parseVarDecl();
+					CHECK_ERROR(var);
+					auto ptr = var.value();
+					ptr->modifier = std::move(md);
+					md = ASTModifier {};
+
+					gd->variables.push_back(ptr);
+
+					if (!check(TokenType::kComma)) {
+						if (expect(TokenType::kRBraces))
+							continue;
+						return Result::failure("Need comma to split variable declaration.", ERRR());
+					}
+					advance(); // Skip ','
+
+				} else if (isModifier(current().type)) {
+					// Parse modifier if matched.
+
+					auto rM = parseModifier();
+					CHECK_ERROR(rM);
+					md = rM.value();
+
+				} else if (check(TokenType::kRBraces)) {
+					// Break on '}'
+					advance(); // Skip ';'
+					break;
+				} else {
+					// Fallback:
+					return Result::failure("Unexpected token found in struct's body.", ERRR());
+				}
+			}while(true);
+
+		} else {
+			return Result::failure("Unexpected token after struct's name", ERRR());
+		}
+
+		return gd.getPtr();
     }
 
+	// If-Stmt parser
+	// Syntax like : if (...) {...} else if (...) {...} else {...}
+	Expected<IfStmt*> NParser::parseIfStmt(bool onlyIf)
+	{
+		if (!check(TokenType::kIf) && !expect(TokenType::kLParen))
+			return nullptr;
+		advance(); // Skip 'if'
+
+		auto gd = ScopeGuard(new IfStmt());
+
+		advance(); // Skip '('
+		// Parse ifExpr
+		auto rE = parseExpr();
+		CHECK_ERROR(rE);
+		gd->ifExpr = rE.value();
+
+		if (!check(TokenType::kRParen))
+			return Result::failure("If body's paren is not closed, need ')' after the body.", ERRR());
+		advance(); // Skip ')'
+
+		if (!check(TokenType::kLBraces)) {
+			// Parse if branch's body
+
+			auto rS = parseScope();
+			CHECK_ERROR(rS);
+			gd->defaultBranch = rS.value();
+
+		} else {
+			// Parse one line if statement.
+
+			auto rB = parseExpr();
+			CHECK_ERROR(rB);
+			gd->defaultBranch = rB.value();
+
+			if (!check(TokenType::kSemicolon))
+				return Result::failure("Line not closed, need ';' after a statement.", ERRR());
+			advance(); // Skip ';'
+		}
+
+		if (onlyIf)
+			return gd.getPtr();
+
+	checkEnd:
+		if (check(TokenType::kElse)) {
+			// Parse 'else'
+
+			if (expect(TokenType::kIf)) {
+				// Parse else if
+
+				advance(); // Skip 'else'
+				auto rN = parseIfStmt(true);
+				CHECK_ERROR(rN);
+				gd->elseIfBranches.push_back(rN.value());
+
+				goto checkEnd; // Check if 'if' statements end
+			}
+			else if (expect(TokenType::kLBraces)) {
+				// Parse else branch
+
+				auto rS = parseScope();
+				CHECK_ERROR(rS);
+				gd->elseBranch = rS.value();
+
+				goto checkEnd; // Check if 'if' statements end
+			}
+			else {
+				// Parse one-line body
+
+				auto rB = parseExpr();
+				CHECK_ERROR(rB);
+				gd->elseBranch = rB.value();
+
+				if (!check(TokenType::kSemicolon))
+					return Result::failure("Line not closed, need ';' after a statement.", ERRR());
+				advance(); // Skip ';'
+
+				goto checkEnd; // Check if 'if' statements end
+			}
+		} else {
+			return gd.getPtr();
+		}
+	}
+
+	// Return statement parser
+	// Syntax like : return xxx;
+	Expected<ReturnStmt*> NParser::parseReturnStmt()
+	{
+		if (!check(TokenType::kReturn))
+			return nullptr;
+		advance(); // Skip 'return'
+
+		auto gd = ScopeGuard(new ReturnStmt());
+		auto rE = parseExpr();
+		CHECK_ERROR(rE);
+		gd->ret = rE.value();
+
+		if (!check(TokenType::kSemicolon))
+			return Result::failure("return statement if not closed by semicolon, need ';' after return xxx <--", ERRR());
+		return gd.getPtr();
+	}
+
+	// Base class parser
+	// Syntax like: : XXX, XXX, ... { [or ;]
+	Expected<std::vector<ASTTypeNode*>> NParser::parseParents()
+	{
+		std::vector<ASTTypeNode*> baseClasses;
+
+		if (!check(TokenType::kColon))
+			return baseClasses;
+
+		do {
+			advance();
+			if (check(TokenType::kLBraces) || check(TokenType::kSemicolon)) {
+				break;
+			}
+			else if (check(TokenType::kComma)) {
+				advance();
+				break;
+			}
+			else {
+				auto tp = parseType();
+				CHECK_ERROR(tp);
+				baseClasses.push_back(tp.value());
+			}
+		} while(true);
+
+		return baseClasses;
+	}
+
+	// Try-catch parser
+	// Syntax like: try {...} catch(...) {...} catch {...}
+	Expected<TryStmt*> NParser::parseTryCatch()
+	{
+		// Check 'try {'
+		if (!check(TokenType::kTry) || !expect(TokenType::kLBraces))
+			return nullptr;
+		advance(); // Skip 'try'
+
+		auto rS = parseScope();
+		CHECK_ERROR(rS);
+		auto gd = ScopeGuard(new TryStmt(rS.value()));
+
+	parseAgain:
+		if (check(TokenType::kCatch)) {
+			// Parse handler
+
+			advance(); // Skip 'catch'
+			auto gdH = ScopeGuard(new CatchStmt());
+			gdH->errorType = nullptr;
+
+			if (check(TokenType::kLParen)) {
+				// Handler with type hint
+
+				// Parse type
+				auto rArgs = parseFuncArgs();
+				CHECK_ERROR(rArgs);
+				auto rD = rArgs.value();
+				if (rD.size() != 1) {
+					return Result::failure("Catch handler only avaliable for single exception type!", ERRR());
+				}
+				gdH->errorType = rD[0];
+				goto parseBody;
+
+			}
+			else if (check(TokenType::kLBraces)) {
+				// Parse body
+
+			parseBody:
+				if (!check(TokenType::kLBraces))
+					return Result::failure("Catch body not found!", ERRR());
+				auto rSH = parseScope();
+				CHECK_ERROR(rSH);
+				gdH->handlerBody = rSH.value();
+
+			}
+			gd->handlers.push_back(gdH.getPtr());
+
+			// Check if any other handler exist.
+			if (check(TokenType::kCatch))
+				goto parseAgain;
+			else
+				return gd.getPtr();
+
+		} else {
+			return Result::failure("Try block without any catch handler", ERRR());
+		}
+	}
+
+	// For loop parser
+	// Syntax like: for(...;...;...) {...} or for {...}
+	Expected<ForStmt*> NParser::parseForStmt()
+	{
+		if (!check(TokenType::kFor))
+			return nullptr;
+		advance(); // Skip 'for'
+
+		auto gd = ScopeGuard(new ForStmt());
+
+		if (check(TokenType::kLParen))
+		{
+			return Result::failure("for statement without loop expression.", ERRR());
+
+			// Parse for's loop expression
+			advance(); // Skip '('
+			auto rVar = parseVarDecl();
+			CHECK_ERROR(rVar);
+			gd->declVar = rVar.value();
+
+			if (!check(TokenType::kSemicolon))
+				return Result::failure("expected ';' after loop variable declaration. var xxx = xxx <--", ERRR());
+			advance(); // Skip ';'
+
+			auto rExpr = parseExpr();
+			CHECK_ERROR(rExpr);
+			gd->cond = rExpr.value();
+
+			if (!check(TokenType::kSemicolon))
+				return Result::failure("expected ';' after loop condition expression. xxx != xxx <--", ERRR());
+			advance(); // Skip ';'
+
+			auto rUpdateExpr = parseExpr();
+			CHECK_ERROR(rUpdateExpr);
+			gd->update = rUpdateExpr.value();
+
+			if (!check(TokenType::kRParen))
+				return Result::failure("expected ')' after loop update expression. xxx... <--", ERRR());
+			advance(); // Skip ')'
+
+			if (check(TokenType::kLBraces)) {
+				goto parseScopeBody;
+			} else {
+				// Parse one line for body statement.
+
+				auto rB = parseExpr();
+				CHECK_ERROR(rB);
+				gd->forBody = rB.value();
+			}
+
+		} else if (check(TokenType::kLBraces)) {
+			// Parse scoped statements for for
+
+		parseScopeBody:
+			auto rScp = parseScope();
+			CHECK_ERROR(rScp);
+			gd->forBody = rScp.value();
+
+		} else {
+			return Result::failure("Unexpected token after for token. ", ERRR());
+		}
+
+		return gd.getPtr();
+	}
+
+	// While loop parser
+	// Syntax like: while(...) {...} or while {...}
+	Expected<WhileStmt*> NParser::parseWhileStmt()
+	{
+		if (!check(TokenType::kWhile))
+			return nullptr;
+		advance(); // Skip 'while'
+		auto gd = ScopeGuard(new WhileStmt());
+
+		if (check(TokenType::kLParen)) {
+			advance(); //Skip '('
+
+			auto rExpr = parseExpr();
+			CHECK_ERROR(rExpr);
+			gd->condition = rExpr.value();
+
+			if (!check(TokenType::kRParen))
+				return Result::failure("while loop condition need closed by ')'.", ERRR());
+			advance(); // Skip ')'
+
+			if (check(TokenType::kLBraces)) {
+				goto parseBody;
+			}
+			else {
+				// Parse one line for body statement.
+
+				auto rB = parseExpr();
+				CHECK_ERROR(rB);
+				gd->body = rB.value();
+			}
+
+		} else if (check(TokenType::kLBraces)) {
+			// parse while body.
+
+			parseBody:
+			auto rScp = parseScope();
+			CHECK_ERROR(rScp);
+			gd->body = rScp.value();
+
+		} else {
+			return Result::failure("unexpected token after 'while' ", ERRR());
+		}
+
+		return gd.getPtr();
+	}
+
+	// Top level of expression parsing
     Expected<ASTExpr*> NParser::parseExpr() {
-        return nullptr;
+        return parseAssignExpr();
     }
+
+	Expected<ASTExpr*> NParser::parseAssignExpr()
+	{
+		return Expected<ASTExpr*>(nullptr);
+	}
+
+	// Unary expression parser
+	Expected<ASTExpr*> NParser::parseUnaryExpr()
+	{
+		if (match(TokenType::kAdd))
+			return parseUnaryExpr(); // +(x) -> x
+
+		if (match(TokenType::kLParen))
+		{
+			if (isType()) {
+				// (T)a
+				advance(); // Skip '('
+				auto rType = parseType();
+				if (!check(TokenType::kRParen))
+					return Result::failure("type body is not closed -> ...)", ERRR());
+				advance(); // Skip ')'
+				auto rOperand = parseUnaryExpr();
+				CHECK_ERROR(rOperand);
+				return new CastExpr(rOperand.value(), rType.value());
+			} else {
+				previous();
+				return parsePrimaryExpr();
+			}
+		}
+
+
+		UnaryOp op = UnaryOp::kUnknown;
+		switch (current().type) {
+		case TokenType::kInc: op = UnaryOp::kPrePlus; break;
+		case TokenType::kDec: op = UnaryOp::kPreMinus; break;
+		case TokenType::kSub: op = UnaryOp::kMinus; break;
+		case TokenType::kLNot: op = UnaryOp::kBang; break;
+		case TokenType::kBitNot: op = UnaryOp::kTilde; break;
+		case TokenType::kBitAnd: op = UnaryOp::kAmp; break;
+		case TokenType::kMul: op = UnaryOp::kStar; break;
+		default: break;
+		}
+
+		if (op != UnaryOp::kUnknown) {
+			advance();
+			auto operand = parseUnaryExpr();
+			CHECK_ERROR(operand);
+			return new UnaryExpr(op, operand.value());
+		}
+
+		return parsePrimaryExpr();
+	}
+
+	// Primary expression parser
+	Expected<ASTExpr*> NParser::parsePrimaryExpr()
+	{
+		if (check(TokenType::kIdentifier))
+		{
+			// a b c
+			auto rId = new ASTIdent(current().value);
+			advance(); // Skip current token
+			return rId;
+		}
+		else if (check(TokenType::kCharLit))
+		{
+			// 'a'
+			auto rCLit = new CharLiteralExpr(current().value[0]);
+			advance(); // Skip current token
+			return rCLit;
+		}
+		else if (check(TokenType::kStringLit))
+		{
+			// "aaa"
+			std::string value = current().value;
+
+			// deal with "aaa""bbb" -> "aaabbb"
+			processStringLit:
+			if (expect(TokenType::kStringLit)) { // TIPS: expect won't cost token!!!
+				advance();
+				value.append(current().value);
+				goto processStringLit;
+			}
+
+			auto rSLit = new StringLiteralExpr(value);
+			advance(); // Skip current
+			return rSLit;
+		}
+		else if (check(TokenType::kIntLit) || check(TokenType::kHexLit))
+		{
+			// 1 2 100 0x00
+			auto rNLit = NumberLiteralExpr::parseNumberToken(current().value);
+			CHECK_ERROR(rNLit);
+			advance();
+			return rNLit.value();
+		}
+		else if (check(TokenType::kFloatLit))
+		{
+			// 8.32
+			auto rFLit = NumberLiteralExpr::parseFloatToken(current().value);
+			CHECK_ERROR(rFLit);
+			advance();
+			return rFLit.value();
+		}
+		else if (check(TokenType::kLParen))
+		{
+			// (...)
+			advance(); // Skip '('
+			auto rInnerExpr = parseExpr();
+			CHECK_ERROR(rInnerExpr);
+			if (!check(TokenType::kRParen))
+				return Result::failure("expression is not closed --> ')'", ERRR());
+			advance(); // Skip ')'
+			return rInnerExpr.value();
+		}
+		else if (check(TokenType::kTrue) || check(TokenType::kFalse))
+		{
+			// true false
+			auto rBLit = new BoolLiteralExpr(current().type == TokenType::kTrue ? (bool)true : (bool)false);
+			advance(); // Skip current
+			return rBLit;
+		}
+		else if (check(TokenType::kNull))
+		{
+			// null
+			advance(); // Skip current
+			return NullExpr::getInstance();
+		}
+		else if (check(TokenType::kThis))
+		{
+			// null
+			advance(); // Skip current
+			return ThisExpr::getInstance();
+		}
+		else if (check(TokenType::kSuper))
+		{
+			// null
+			advance(); // Skip current
+			return SuperExpr::getInstance();
+		}
+		else if (check(TokenType::kNew))
+		{
+			// new xxx(...);
+			advance(); // Skip 'new'
+			auto rNType = parseType();
+			CHECK_ERROR(rNType);
+			if (!check(TokenType::kLParen))
+				return Result::failure("new instance should provide a argument body.");
+			auto rNArgs = parseFuncCallArgs();
+			CHECK_ERROR(rNArgs);
+			return new NewExpr(rNType.value(), rNArgs.value());
+		}
+		else if (check(TokenType::kFun))
+		{
+			// parse lambda function
+			auto rLFunc = parseFunc(true);
+			CHECK_ERROR(rLFunc);
+			return new LambdaFuncExpr(rLFunc.value());
+		}
+		else if (check(TokenType::kCast))
+		{
+			// cast<i32>(...)
+			advance(); // Skip 'cast'
+			if (!check(TokenType::kLt))
+				return Result::failure("No type hint in cast expression -> <...", ERRR());
+			advance(); // Skip '<'
+			auto rCType = parseType();
+			CHECK_ERROR(rCType);
+			if (!check(TokenType::kGt))
+				return Result::failure("Type hint is not closed in cast expression -> ...>", ERRR());
+			advance(); // Skip '>'
+
+			if (!check(TokenType::kLParen))
+				return Result::failure("No cast body -> (...", ERRR());
+			advance(); // Skip '('
+			auto rCExpr = parseExpr();
+			CHECK_ERROR(rCExpr);
+			if (!check(TokenType::kRParen))
+				return Result::failure("Cast body not closed -> ...)", ERRR());
+			advance(); // Skip ')'
+
+			return new CastExpr(rCExpr.value(), rCType.value());
+		}
+		else if (check(TokenType::kLBracket))
+		{
+			// [a,b,c]
+			advance(); // Skip '['
+			std::vector<ASTExpr*> elements {};
+
+			if (!check(TokenType::kRBracket))
+			{
+				while (true)
+				{
+					auto elem = parseExpr();
+					CHECK_ERROR(elem);
+					elements.push_back(elem.value());
+					if (check(TokenType::kComma))
+						advance(); // Skip ','
+					else break;
+				}
+			}
+
+			if (!check(TokenType::kRBracket))
+				return Result::failure("array literal not closed -> ']'", ERRR());
+			advance(); // skip ']'
+
+			return new ArrayLiteralExpr(std::move(elements));
+		}
+
+
+		return Result::failure("Unexpected token in primary expression: " + current().toString(), ERRR());
+	}
 
 
     bool NParser::parse()
@@ -1145,6 +1828,104 @@ do { \
         return true;
     }
 
+
+	Expected<ASTExpr*> NParser::parseMultiplicativeExpr()
+	{
+		auto left = parseUnaryExpr();
+		CHECK_ERROR(left);
+
+		while(true) {
+			BinaryOp op = BinaryOp::kUnknown;
+
+			switch (current().type) {
+			case TokenType::kMul:  op = BinaryOp::kMul;  break;  // *
+			case TokenType::kDiv:  op = BinaryOp::kDiv;  break;  // /
+			case TokenType::kMod:  op = BinaryOp::kMod;  break;  // %
+			default:
+				op = BinaryOp::kUnknown;
+				break;
+			}
+
+			if (op == BinaryOp::kUnknown)
+				break;
+
+			advance(); // Skip operator
+
+			auto right = parseUnaryExpr();
+			CHECK_ERROR(right);
+
+			left = new BinaryExpr(op, left.value(), right.value());
+		}
+
+		return left;
+	}
+
+	// Check current token is modifier or not
+	bool NParser::isModifier(TokenType t)
+	{
+		if (std::find(&s_modifier[0], &s_modifier[7], t) == &s_modifier[7]) {
+			return true;
+		}
+		return false;
+	}
+
+	// Check current is type or expression
+	bool NParser::isType()
+	{
+		psize idx = m_lexer->m_tk_idx; // save current pos
+
+		// check identifier
+		if (idx >= m_lexer->m_tokens.size() || m_lexer->m_tokens[idx].type != TokenType::kIdentifier)
+			return false;
+		idx++;
+
+		// deal with module path: a.b.c
+		while (idx < m_lexer->m_tokens.size() && m_lexer->m_tokens[idx].type == TokenType::kDot) {
+			idx++; // skip '.'
+			if (idx >= m_lexer->m_tokens.size() || m_lexer->m_tokens[idx].type != TokenType::kIdentifier)
+				return false; // '.' must be identifier
+			idx++;
+		}
+
+		// pointer type
+		while (idx < m_lexer->m_tokens.size() && m_lexer->m_tokens[idx].type == TokenType::kMul) {
+			idx++;
+		}
+
+		// check array type: i32[10], i32[]
+		if (idx < m_lexer->m_tokens.size() && m_lexer->m_tokens[idx].type == TokenType::kLBracket) {
+			idx++;
+			while (idx < m_lexer->m_tokens.size()) {
+				auto t = m_lexer->m_tokens[idx].type;
+				if (t == TokenType::kIntLit) {
+					idx++;
+					continue;
+				} else if (t == TokenType::kComma) {
+					idx++;
+					continue;
+				} else if (t == TokenType::kRBracket) {
+					idx++;
+					break;
+				} else {
+					return false;
+				}
+			}
+		}
+
+		// TODO: fall back
+		if (idx < m_lexer->m_tokens.size()) {
+			TokenType nt = m_lexer->m_tokens[idx].type;
+			if (nt == TokenType::kIdentifier || nt == TokenType::kIntLit ||
+				nt == TokenType::kFloatLit || nt == TokenType::kStringLit ||
+				nt == TokenType::kLParen)
+			{
+
+			}
+		}
+
+		return true;
+	}
+
 #if NE_DEBUG
     bool NParser::debugParse() {
         auto& output = m_args.output;
@@ -1161,9 +1942,6 @@ do { \
 
         return true;
     }
-
-
-
 #endif
 
 }

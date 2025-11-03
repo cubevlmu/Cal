@@ -163,6 +163,8 @@ namespace neo {
         std::string name;
 		/// Super classes of this interface class
         std::vector<FuncDecl*> children;
+	    /// Super interfaces of current interface
+	    std::vector<ASTTypeNode*> baseInterfaces;
     };
 
 

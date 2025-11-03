@@ -39,11 +39,19 @@ namespace neo {
     class IfStmt final : public ASTStmt
     {
     public:
+	    IfStmt()
+		    : ASTStmt(StmtKind::kIf)
+		    , ifExpr{ nullptr }
+		    , defaultBranch{ nullptr }
+		    , elseBranch{ nullptr }
+		    , elseIfBranches {}
+		{}
         IfStmt(ASTExpr* ifExpr, ASTStmt* defaultBranch, ASTStmt* elseBranch = nullptr)
             : ASTStmt(StmtKind::kIf)
             , ifExpr{ ifExpr }
             , defaultBranch{ defaultBranch }
             , elseBranch{ elseBranch }
+			, elseIfBranches {}
         {
         }
         ~IfStmt() override = default;
@@ -51,7 +59,8 @@ namespace neo {
     public:
         ASTExpr* ifExpr;
         ASTStmt* defaultBranch;
-        ASTStmt* elseBranch = nullptr;;
+		std::vector<ASTStmt*> elseIfBranches;
+        ASTStmt* elseBranch = nullptr;
     };
 
 
@@ -59,6 +68,7 @@ namespace neo {
     class WhileStmt : public ASTStmt
     {
     public:
+		WhileStmt() : ASTStmt(StmtKind::kWhile) {}
         WhileStmt(ASTExpr* cond, ASTStmt* body)
             : ASTStmt(StmtKind::kWhile)
             , condition{ cond }
@@ -77,7 +87,8 @@ namespace neo {
     class ForStmt : public ASTStmt
     {
     public:
-        ForStmt(ASTStmt* decl, ASTExpr* cond, ASTExpr* update, ASTStmt* body)
+		ForStmt() : ASTStmt(StmtKind::kFor) {}
+        ForStmt(class VarDecl* decl, ASTExpr* cond, ASTExpr* update, ASTStmt* body)
             : ASTStmt(StmtKind::kFor)
             , declVar{ decl }
             , cond{ cond }
@@ -88,7 +99,7 @@ namespace neo {
         ~ForStmt() override = default;
 
     public:
-        ASTStmt* declVar;
+        VarDecl* declVar;
         ASTExpr* cond;
         ASTExpr* update;
         ASTStmt* forBody;
@@ -117,6 +128,7 @@ namespace neo {
     class ReturnStmt : public ASTStmt
     {
     public:
+		ReturnStmt() : ASTStmt(StmtKind::kReturn), ret {nullptr} {}
         ReturnStmt(ASTExpr* expr)
             : ASTStmt(StmtKind::kReturn)
             , ret{ expr }
@@ -136,6 +148,55 @@ namespace neo {
         BreakStmt() : ASTStmt(StmtKind::kBreak) {}
         ~BreakStmt() override = default;
     };
+
+
+	/// Catch block for exception handling
+	class CatchStmt : public ASTStmt
+	{
+	public:
+		CatchStmt() : ASTStmt(StmtKind::kCatch) {}
+		CatchStmt(class VarDecl* type, ASTStmt* body)
+		   : ASTStmt(StmtKind::kCatch)
+		   , errorType{type}
+		   , handlerBody{body}
+		   {}
+
+	public:
+		VarDecl* errorType;
+		ASTStmt* handlerBody;
+	};
+
+
+	/// Try-catch block statement
+	class TryStmt : public ASTStmt
+	{
+	public:
+		TryStmt() : ASTStmt(StmtKind::kTry) {}
+		TryStmt(ASTStmt* body)
+		    : ASTStmt(StmtKind::kTry)
+			, body {body}
+			, handlers {}
+		{}
+
+	public:
+		ASTStmt* body;
+		std::vector<CatchStmt*> handlers;
+	};
+
+
+	/// Exception emit statement (throw)
+	class ThrowStmt : public ASTStmt
+	{
+	public:
+		ThrowStmt() : ASTStmt(StmtKind::kThrow) {}
+		ThrowStmt(ASTExpr* expr)
+		    : ASTStmt(StmtKind::kThrow)
+			, expr {expr}
+		{}
+
+	public:
+		ASTExpr* expr;
+	};
 
 
 	/// Loop continue or jump statement AST node

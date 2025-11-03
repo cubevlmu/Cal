@@ -72,7 +72,10 @@ namespace neo {
         kContinue,
         kImport,
         kDecl,
-        kExpr
+        kExpr,
+		kTry,
+		kCatch,
+		kThrow
     };
     std::string_view getTypeString(StmtKind);
     class ASTStmt* createStmt(StmtKind);
@@ -111,7 +114,13 @@ namespace neo {
         kCast,
         kNew,
 		kStringLit,
-		kCharLit
+		kCharLit,
+		kIdent,
+		kNull,
+		kLambda,
+		kThis,
+		kSuper,
+		kArrayLit
     };
     std::string_view getTypeString(ExprKind);
     class ASTExpr* createExpr(ExprKind);
@@ -134,6 +143,20 @@ namespace neo {
     private:
         ExprKind m_kind;
     };
+
+
+	template <typename T>
+	class SingletonExpr {
+	public:
+		static T* getInstance() {
+			static T instance{};
+			return &instance;
+		}
+
+	protected:
+		SingletonExpr() {}
+		~SingletonExpr() {}
+	};
 
 
     enum class DeclKind {

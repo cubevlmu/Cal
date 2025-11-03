@@ -1,0 +1,27 @@
+// number value test case
+
+fun main() {
+/*
+    | input     | expected type | expected value  |
+    | --------- | ------------- | --------------- |
+    | `123`     | i32           | 123             |
+    | `123u`    | u32           | 123             |
+    | `123l`    | i64           | 123             |
+    | `0xFF`    | i32           | 255             |
+    | `1.0`     | f64           | 1.0             |
+    | `1.0f`    | f32           | 1.0             |
+    | `1.0L`    | f128          | 1.0             |
+    | `3e10`    | f64           | 3e10            |
+    | `.5`      | f64           | 0.5             |
+    | `3.`      | f64           | 3.0             |
+*/
+    var a = 123;
+    var b = 123u;
+    var c = 123l;
+    var d = 0xFF;
+    var e = 1.0;
+    var f = 1.0f;
+    var g = 3e10;
+    var h = .5;
+    var i = 3.;
+}

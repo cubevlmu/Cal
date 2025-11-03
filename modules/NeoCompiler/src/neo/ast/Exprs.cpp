@@ -13,7 +13,7 @@ namespace neo
 		"Unknown",
 		"u8", "u16", "u32", "u64",
 		"i8", "i16", "i32", "i64",
-		"f32", "f64", "bool"
+		"f32", "f64", "f128", "bool"
 	};
 	std::string_view getTypeString(LiteralType type)
 	{
@@ -34,8 +34,17 @@ namespace neo
 
 	static const char* s_UnaryOp[] = {
 		"Unknown",
-		"Plus", "Minus", "LogicalNot", "BitwiseNot",
-		"PreIncrement", "PreDecrement", "PostIncrement", "PostDecrement"
+		"Plus",           // kPlus
+		"Minus",          // kMinus
+		"LogicalNot",     // kBang
+		"BitwiseNot",     // kTilde
+		"PreIncrement",   // kPrePlus
+		"PreDecrement",   // kPreMinus
+		"PostIncrement",  // kPostPlus
+		"PostDecrement",  // kPostMinus
+		"AddressOf",      // kAmp
+		"Dereference",    // kStar
+		"Cast"            // kCast
 	};
 	std::string_view toTypeString(UnaryOp type)
 	{
@@ -66,10 +75,129 @@ namespace neo
 			return std::to_string(m_value.f32);
 		case LiteralType::kF64:
 			return std::to_string(m_value.f64);
+		case LiteralType::kF128:
+			return std::to_string(m_value.f128);
 		case LiteralType::kUnknown:
 		case LiteralType::kBool:
 			return "";
 		}
+	}
+
+	Expected<NumberLiteralExpr*> NumberLiteralExpr::parseFloatToken(const std::string& num)
+	{
+		std::string lower;
+		lower.reserve(num.size());
+		for (char c : num)
+			lower += std::tolower(c);
+
+		LiteralType ty = LiteralType::kF64; // f64 first
+		std::string numStr = lower;
+
+		if (numStr.ends_with("f"))
+		{
+			ty = LiteralType::kF32;
+			numStr.pop_back();
+		}
+		else if (numStr.ends_with("l"))
+		{
+			ty = LiteralType::kF128;
+			numStr.pop_back();
+		}
+
+		// remove spaces in token value
+		numStr.erase(std::remove_if(numStr.begin(), numStr.end(), ::isspace), numStr.end());
+
+		try
+		{
+			switch (ty)
+			{
+			case LiteralType::kF32:
+			{
+				float val = std::stof(numStr);
+				return new NumberLiteralExpr(val);
+			}
+			case LiteralType::kF64:
+			{
+				double val = std::stod(numStr);
+				return new NumberLiteralExpr(val);
+			}
+			case LiteralType::kF128:
+			{
+				long double val = std::stold(numStr);
+				return new NumberLiteralExpr(val);
+			}
+			default:
+				return Result::failure("Unknown float literal type");
+			}
+		}
+		catch (const std::exception& e)
+		{
+			return Result::failure(std::string("Invalid float literal: ") + e.what());
+		}
+	}
+
+	Expected<NumberLiteralExpr*> NumberLiteralExpr::parseNumberToken(const std::string& txt)
+	{
+		std::string num = txt;
+		bool isUnsigned = false;
+		bool isLong = false;
+		bool isLongLong = false;
+
+		// check suffix
+		std::string lower;
+		for (char c : num) lower += std::tolower(c);
+		if (lower.ends_with("ull") || lower.ends_with("llu")) { isUnsigned = true; isLongLong = true; }
+		else if (lower.ends_with("ul") || lower.ends_with("lu")) { isUnsigned = true; isLong = true; }
+		else if (lower.ends_with("u")) { isUnsigned = true; }
+		else if (lower.ends_with("l")) { isLong = true; }
+
+		// remove suffix
+		auto pos = num.find_first_not_of("0123456789xXabcdefABCDEF");
+		if (pos != std::string::npos) num = num.substr(0, pos);
+
+		// check
+		int base = 10;
+		if (num.rfind("0x", 0) == 0 || num.rfind("0X", 0) == 0) base = 16;
+		else if (num.rfind("0", 0) == 0 && num.size() > 1) base = 8;
+
+		unsigned long long val = 0;
+		try {
+			val = std::stoull(num, nullptr, base);
+		} catch (...) {
+			return Result::failure("Invalid integer literal: " + num);
+		}
+
+		// check number type
+		LiteralType ty = LiteralType::kUnknown;
+
+		if (!isUnsigned && base == 10)
+		{
+			if (val <= kMaxI32) ty = LiteralType::kI32;
+			else if (val <= kMaxI64) ty = LiteralType::kI64;
+		}
+		else // hex or oct or unsigned suffix
+		{
+			if (val <= kMaxU32) ty = LiteralType::kU32;
+			else if (val <= kMaxU64) ty = LiteralType::kU64;
+		}
+
+		if (isLong && ty == LiteralType::kI32) ty = LiteralType::kI64;
+		if (isLongLong) ty = LiteralType::kI64;
+		if (isUnsigned && ty == LiteralType::kI32) ty = LiteralType::kU32;
+
+		// fallback
+		if (ty == LiteralType::kUnknown) ty = LiteralType::kI64;
+
+		if (ty == LiteralType::kI32)
+			return new NumberLiteralExpr((i32)val);
+		if (ty == LiteralType::kI64)
+			return new NumberLiteralExpr((i64)val);
+		if (ty == LiteralType::kU32)
+			return new NumberLiteralExpr((u32)val);
+		if (ty == LiteralType::kU64)
+			return new NumberLiteralExpr((u64)val);
+
+		return Result::failure("Unknown literal type");
 	}
 
 	BoolLiteralExpr::BoolLiteralExpr(bool val)
@@ -203,5 +331,38 @@ namespace neo
 	    : ASTExpr(ExprKind::kCharLit)
 		, value {c}
 	{
+	}
+
+	LambdaFuncExpr::LambdaFuncExpr()
+	    : ASTExpr(ExprKind::kLambda)
+		, function {}
+	{
+
+	}
+
+	LambdaFuncExpr::LambdaFuncExpr(struct FuncDecl* func)
+		: ASTExpr(ExprKind::kLambda)
+		, function {func}
+	{
+
+	}
+
+	ArrayLiteralExpr::ArrayLiteralExpr()
+	    : ASTExpr(ExprKind::kArrayLit)
+		, elements {}
+	{
+
+	}
+
+	ArrayLiteralExpr::ArrayLiteralExpr(std::vector<ASTExpr*> v)
+		: ASTExpr(ExprKind::kArrayLit)
+		, elements {std::move(v)}
+	{
+
+	}
+
+	ArrayLiteralExpr::~ArrayLiteralExpr()
+	{
+		//TODO clean up
 	}
 }

@@ -61,6 +61,10 @@ namespace neo {
         bool expect(TokenType);
         bool check(TokenType);
 
+	private:
+		bool isModifier(TokenType);
+		bool isType();
+
     private:
         Expected<void> parseRoot();
 
@@ -86,10 +90,27 @@ namespace neo {
         Expected<std::vector<Attribute*>> parseAttributes();
         Expected<ASTModifier> parseModifier();
 
-        Expected<FuncDecl*> parseFunc();
+        Expected<FuncDecl*> parseFunc(bool isLambda = false);
         Expected<std::vector<VarDecl*>> parseFuncArgs();
         Expected<std::vector<ASTExpr*>> parseFuncCallArgs();
+		Expected<std::vector<ASTTypeNode*>> parseParents();
 
+		Expected<IfStmt*> parseIfStmt(bool onlyIf = false);
+		Expected<ReturnStmt*> parseReturnStmt();
+		Expected<TryStmt*> parseTryCatch();
+		Expected<ForStmt*> parseForStmt();
+		Expected<WhileStmt*> parseWhileStmt();
+
+		Expected<ASTExpr*> parseAssignExpr();
+		Expected<ASTExpr*> parseLogicalOrExpr();
+		Expected<ASTExpr*> parseLogicalAndExpr();
+		Expected<ASTExpr*> parseEqualityExpr();
+		Expected<ASTExpr*> parseRelationalExpr();
+		Expected<ASTExpr*> parseAdditiveExpr();
+		Expected<ASTExpr*> parsePostfixExpr();
+		Expected<ASTExpr*> parseMultiplicativeExpr();
+		Expected<ASTExpr*> parseUnaryExpr();
+		Expected<ASTExpr*> parsePrimaryExpr();
 
     private:
         NParserArgs m_args;

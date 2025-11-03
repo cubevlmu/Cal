@@ -5,18 +5,34 @@
 
 #include "Base.hpp"
 #include "Type.hpp"
+#include "neo/diagnose/Diagnostic.hpp"
 
 #include <nbase/base/Assert.hpp>
 #include <initializer_list>
 
 namespace neo {
 
+	/// AST identifier for lvalue and rvalue
+	class ASTIdent : public ASTExpr
+	{
+	public:
+		ASTIdent() : ASTExpr(ExprKind::kIdent) {}
+		ASTIdent(std::string name)
+		    : ASTExpr(ExprKind::kIdent)
+			, name {std::move(name)}
+		{}
+
+	public:
+		std::string name;
+	};
+
+
 	/// Literal type enums
     enum class LiteralType : u8 {
         kUnknown,
         kU8, kU16, kU32, kU64,
         kI8, kI16, kI32, kI64,
-        kF32, kF64,
+        kF32, kF64, kF128,
         kBool
     };
     std::string_view getTypeString(LiteralType);
@@ -42,11 +58,14 @@ namespace neo {
             return m_type;
         }
 
+		static Expected<NumberLiteralExpr*> parseNumberToken(const std::string& num);
+		static Expected<NumberLiteralExpr*> parseFloatToken(const std::string& num);
+
     private:
         union {
             u8 u8; u16 u16; u32 u32; u64 u64;
             i8 i8; i16 i16; i32 i32; i64 i64;
-            f32 f32; f64 f64;
+            f32 f32; f64 f64; f128 f128;
         } m_value;
         LiteralType m_type = LiteralType::kUnknown;
     };
@@ -127,12 +146,15 @@ namespace neo {
         kUnknown,
         kPlus,           // +a
         kMinus,          // -a
-        kLogicalNot,     // !a
-        kBitwiseNot,     // ~a
-        kPreIncrement,   // ++a
-        kPreDecrement,   // --a
-        kPostIncrement,  // a++
-        kPostDecrement   // a--
+        kBang,           // !a
+        kTilde,          // ~a
+        kPrePlus,        // ++a
+        kPreMinus,       // --a
+        kUnused1,        //
+        kUnused2,        //
+		kAmp,            // &a
+		kStar,           // *a
+		kCast,           // (T)a
     };
     std::string_view toTypeString(UnaryOp);
 
@@ -185,6 +207,19 @@ namespace neo {
     };
 
 
+	/// Array's initial value expression
+	class ArrayLiteralExpr : public ASTExpr
+	{
+	public:
+		ArrayLiteralExpr();
+		ArrayLiteralExpr(std::vector<ASTExpr*> v);
+		~ArrayLiteralExpr();
+
+	public:
+		std::vector<ASTExpr*> elements;
+	};
+
+
 	/// Variable reference expression AST node
     class VariableRefExpr : public ASTExpr
     {
@@ -233,6 +268,46 @@ namespace neo {
         std::vector<ASTExpr*> arguments;
         bool isStackAlloc;
     };
+
+
+	/// Null value expression
+	class NullExpr : public ASTExpr, public SingletonExpr<NullExpr>
+	{
+		friend class SingletonExpr;
+	private:
+		NullExpr() : ASTExpr(ExprKind::kNull) {}
+	};
+
+
+	/// This expression
+	class ThisExpr : public ASTExpr, public SingletonExpr<ThisExpr>
+	{
+		friend class SingletonExpr;
+	private:
+		ThisExpr() : ASTExpr(ExprKind::kThis) {}
+	};
+
+
+	/// This expression
+	class SuperExpr : public ASTExpr, public SingletonExpr<ThisExpr>
+	{
+		friend class SingletonExpr;
+	private:
+		SuperExpr() : ASTExpr(ExprKind::kThis) {}
+	};
+
+
+	/// Lambda expression support
+	class LambdaFuncExpr : public ASTExpr
+	{
+	public:
+		LambdaFuncExpr();
+		LambdaFuncExpr(class FuncDecl* func);
+		~LambdaFuncExpr() = default;
+
+	public:
+		class FuncDecl* function;
+	};
 }
 
 #include <neo/ast/Exprs.inl>
