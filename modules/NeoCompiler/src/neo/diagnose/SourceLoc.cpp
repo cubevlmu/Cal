@@ -1,40 +1,49 @@
-// Created by cubevlmu on 2025/10/3.
-// Copyright (c) 2025 Flybird Games. All rights reserved.
+/*
+ * @Author: cubevlmu khfahqp@gmail.com
+ * @LastEditors: cubevlmu khfahqp@gmail.com
+ * Copyright (c) 2026 by FlybirdGames, All Rights Reserved. 
+ */
 
 #include "SourceLoc.hpp"
 
 #include "neo/compiler/SourceFile.hpp"
 
 #include <nbase/base/Serializer.hpp>
-
-#include <filesystem>
-#include <sstream>
+#include "nbase/base/Format.hpp"
 
 namespace neo {
 
-    std::string SourceLoc::toString() const
+    String SourceLoc::path() const
     {
-        std::stringstream output {};
-        std::filesystem::path p(file == nullptr ? "Unknown Source" : file->getPath());
-        output << p.filename() << " [" << line << ':' << column << ']';
+        if (file == nullptr) {
+            return "Unknown Source";
+        }
+        return file->getPath();
+    }
 
-        return output.str();
+    String SourceLoc::toString() const
+    {
+        return neo::format("{}:{}:{}", path(), line, column);
     }
 
     void SourceLoc::write(NSerializer* s) const {
         s->write(line);
         s->write(column);
-        s->write(file->getPath());
+        s->write(file == nullptr ? StringView{} : StringView(file->getPath()));
     }
 
-    void SourceLoc::read(NSerializer* s) const {
-        s->read((u64)line);
-        s->read((u64)column);
+    void SourceLoc::read(NSerializer* s) {
+        void* linePtr = &line;
+        s->read(linePtr, sizeof(line));
+
+        void* columnPtr = &column;
+        s->read(columnPtr, sizeof(column));
+
         std::string path;
         s->read(path);
+        file = nullptr;
 
         (void)path;
-        //TODO use the result
     }
 
 }

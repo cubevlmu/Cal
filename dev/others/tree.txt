@@ -1,0 +1,8 @@
+A
+|-- B: aaa
+|   |-- C: ddd
+|   |-- E: eee
+|   └-- F: aaa
+└-- G
+    |-- E: aaa
+    └-- A : aaa

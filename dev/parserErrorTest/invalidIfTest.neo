@@ -1,0 +1,7 @@
+fun badIf(a : i32) bool {
+    if (a == 10 {
+        return true;
+    }
+
+    return false;
+}

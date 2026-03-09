@@ -2,6 +2,10 @@ cmake_minimum_required(VERSION 3.20)
 
 project(ProjectNeon)
 
+if (MSVC)
+    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
+endif()
+
 # scripts
 include(${CMAKE_SOURCE_DIR}/cmakes/Index.cmake)
 

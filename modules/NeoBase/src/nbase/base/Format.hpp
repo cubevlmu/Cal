@@ -5,30 +5,47 @@
 
 #include <nbase/common.hpp>
 #include <format>
-#include <nbase/memory/StlAllocator.hpp>
+#include <nbase/memory/Memory.hpp>
 
 namespace neo {
 
 	typedef neo::StlAllocator<char> fmt_allocator;
 	typedef std::vector<char, neo::StlAllocator<char>> fmt_memory_buffer;
 
-	/// Fmt-style string format function based on std::format
-    template <typename... Args>
-    NE_FORCE_INLINE std::string format(std::string_view fmtStr, const Args&... args) {
-        return std::vformat(fmtStr, std::make_format_args(args...));
-    }
+	NE_FORCE_INLINE static std::string_view toStdStringView(StringView text)
+	{
+		return std::string_view(text.data(), text.size());
+	}
+
+	/// Fmt-style string format function based on std::format. With custom memory buffer.
+	template<typename... Args>
+	NE_FORCE_INLINE static void format(fmt_memory_buffer& buffer, StringView format, const Args& ... args)
+	{
+		std::vformat_to(std::back_inserter(buffer), toStdStringView(format), std::make_format_args(args...));
+	}
 
 	/// Fmt-style string format function based on std::format. With custom memory buffer.
 	template<typename... Args>
 	NE_FORCE_INLINE static void format(fmt_memory_buffer& buffer, const char* format, const Args& ... args)
 	{
-#if NE_COMPILER_MSVC
-		std::vformat_to(std::back_inserter(buffer), format, std::make_format_args(args...));
-#else
-		std::format_to(std::back_inserter(buffer), format, args...);
-#endif
+		neo::format(buffer, StringView(format), args...);
 	}
 
+	/// Fmt-style string format function based on std::format
+	template<typename... Args>
+	static String format(StringView format, const Args& ... args)
+	{
+		neo::StlAllocator<char> allocator;
+		neo::fmt_memory_buffer buf{allocator};
+		neo::format(buf, format, args...);
+		return String(buf.data(), static_cast<size_t>(buf.size()));
+	}
+
+	template<typename... Args>
+	static String format(const char* format, const Args& ... args)
+	{
+		return neo::format(StringView(format), args...);
+	}
 }
 
 #define DEFINE_DEFAULT_FORMATTING(type, formatText, ...)               \
@@ -53,4 +70,3 @@ namespace neo {
             return std::ranges::copy(str.begin(), str.end(), ctx.out()).out; \
         }                                                              \
     };
-

@@ -1,79 +1,173 @@
-// Created by cubevlmu on 2025/10/3.
-// Copyright (c) 2025 Flybird Games. All rights reserved.
+/*
+ * @Author: cubevlmu khfahqp@gmail.com
+ * @LastEditors: cubevlmu khfahqp@gmail.com
+ * Copyright (c) 2026 by FlybirdGames, All Rights Reserved.
+ */
 
 #include "Decl.hpp"
 
 #include "neo/compiler/DebugOutput.hpp"
-#include "Stmts.hpp"
 
-namespace neo {
+namespace neo
+{
 
-    void VarDecl::read(NSerializer *s) {
-        ASTNode::read(s);
-    }
+	void VarDecl::read(NSerializer *s)
+	{
+		ASTNode::read(s);
+	}
 
-    void VarDecl::write(NSerializer *s) {
-        ASTNode::write(s);
-        s->write(name);         // Name
-        type->write(s);            // Type
-        s->write(initExpr != nullptr); // isInitExprExist
-        if (initExpr) {
-            initExpr->write(s);
-        }
-    }
+	void VarDecl::write(NSerializer *s)
+	{
+		ASTNode::write(s);
+		s->write(name);				   // Name
+		type->write(s);				   // Type
+		s->write(initExpr != nullptr); // isInitExprExist
+		if (initExpr)
+		{
+			initExpr->write(s);
+		}
+	}
 
-    void VarDecl::debugPrint(NDebugOutput &output) {
-        ASTDecl::debugPrint(output);
-        output.writeLine("\t   |- Name: {}", name);
-        output.writeLine("\t   |- Type: ");
-        if (type) type->debugPrint(output);
-        output.writeLine("\t   |- InitExpr: ");
-        if (initExpr) initExpr->debugPrint(output);
-    }
+	void VarDecl::debugPrint(NDebugOutput &out)
+	{
+		ASTDecl::debugPrint(out);
+		out.beginObject("VarDecl");
 
+		out.printItem("name", name);
+		out.printChild("type", type);
+		out.printChild("init", initExpr);
 
-    TopLevelDecls::~TopLevelDecls()
-    {
-        for (auto* ptr : decls) {
-            delete ptr;
-        }
-        decls.clear();
-    }
+		out.endObject();
+	}
 
-    ModuleDecl::~ModuleDecl()
-    {
-        delete children;
-    }
+	TopLevelDecls::~TopLevelDecls()
+	{
+		for (auto *ptr : decls)
+		{
+			delete ptr;
+		}
+		decls.clear();
+	}
 
+	void TopLevelDecls::debugPrint(NDebugOutput &out)
+	{
+		ASTDecl::debugPrint(out);
+		out.beginObject("TopLevelDecls");
 
-    EnumDecl::~EnumDecl()
-    {
-        for (auto* ptr : children) {
-            delete ptr;
-        }
-        children.clear();
-    }
+		out.printChildren("children", decls);
 
+		out.endObject();
+	}
 
-    InterfaceDecl::~InterfaceDecl()
-    {
-        for (auto* ptr : children) {
-            delete ptr;
-        }
-        children.clear();
-    }
+	ModuleDecl::~ModuleDecl()
+	{
+		delete children;
+	}
 
+	void ModuleDecl::debugPrint(NDebugOutput &out)
+	{
+		ASTDecl::debugPrint(out);
+		out.beginObject("ModuleDecl");
 
-    void FuncDecl::debugPrint(NDebugOutput& output) {
-        ASTDecl::debugPrint(output);
-        output.writeLine("\t   |- Name: {}", name);
-        output.writeLine("\t   |- Args: ");
-        for (auto* arg : this->args) {
-            arg->debugPrint(output);
-        }
-        output.writeLine("\t   |- ReturnType: ");
-        if (returnType) returnType->debugPrint(output);
-        output.writeLine("\t   |- Body: ");
-        if(funcBody) funcBody->debugPrint(output);
-    }
+		out.printItem("name", name);
+		out.printChild("body", children);
+
+		out.endObject();
+	}
+
+	EnumDecl::~EnumDecl()
+	{
+		for (auto *ptr : children)
+		{
+			delete ptr;
+		}
+		children.clear();
+	}
+
+	void EnumDecl::debugPrint(NDebugOutput &out)
+	{
+		ASTDecl::debugPrint(out);
+		out.beginObject("EnumDecl");
+
+		out.printItem("name", name);
+		out.printChildren("items", children);
+		out.printChild("baseType", baseType);
+
+		out.endObject();
+	}
+
+	InterfaceDecl::~InterfaceDecl()
+	{
+		for (auto *ptr : children)
+		{
+			delete ptr;
+		}
+		children.clear();
+	}
+
+	void InterfaceDecl::debugPrint(NDebugOutput &out)
+	{
+		ASTDecl::debugPrint(out);
+		out.beginObject("InterfaceDecl");
+
+		out.printItem("name", name);
+		out.printChildren("children", children);
+		out.printChildren("bases", baseInterfaces);
+
+		out.endObject();
+	}
+
+	void FuncDecl::debugPrint(NDebugOutput &out)
+	{
+		ASTDecl::debugPrint(out);
+		out.beginObject("FuncDecl");
+
+		out.printItem("name", name);
+		out.printChild("return", returnType);
+		out.printChildren("args", args);
+		out.printChild("body", funcBody);
+
+		out.endObject();
+	}
+
+	void FieldDecl::debugPrint(NDebugOutput &out)
+	{
+		ASTDecl::debugPrint(out);
+		out.beginObject("FieldDecl");
+
+		out.printItem("name", name);
+		out.printChild("type", type);
+		out.printChild("init", init);
+
+		out.endObject();
+	}
+
+	void ClassDecl::debugPrint(NDebugOutput &out)
+	{
+		ASTDecl::debugPrint(out);
+		out.beginObject("ClassDecl");
+
+		out.printItem("name", name);
+		out.printChildren("bases", baseClasses);
+		out.printChildren("subTypes", subDataTypes);
+		out.printChildren("fields", fields);
+		out.printChildren("variables", variables);
+		out.printChildren("functions", functions);
+		out.printChildren("constructors", ctors);
+		out.printChild("destructor", dtors);
+
+		out.endObject();
+	}
+
+	void StructDecl::debugPrint(NDebugOutput &out)
+	{
+		ASTDecl::debugPrint(out);
+		out.beginObject("StructDecl");
+
+		out.printItem("name", name);
+		out.printChildren("variables", variables);
+
+		out.endObject();
+	}
+
 }

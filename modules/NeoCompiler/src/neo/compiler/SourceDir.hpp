@@ -1,30 +1,32 @@
-// Created by cubevlmu on 2025/8/16.
-// Copyright (c) 2025 Flybird Games. All rights reserved.
+/*
+ * @Author: cubevlmu khfahqp@gmail.com
+ * @LastEditors: cubevlmu khfahqp@gmail.com
+ * Copyright (c) 2026 by FlybirdGames, All Rights Reserved.
+ */
 
 #pragma once
 
-#include <unordered_map>
-#include <string>
-
+#include <nbase/memory/Memory.hpp>
 #include <neo/compiler/SourceFile.hpp>
 
-namespace neo {
-
+namespace neo
+{
     class NSourceDir
     {
     public:
-        NSourceDir(const char* path);
+        NSourceDir(const char *path);
         ~NSourceDir();
 
         bool collect();
         bool compile();
 
-        std::string_view getRoot() {
+        StringView getRoot()
+        {
             return m_path;
         }
 
     private:
-        std::unordered_map<std::string_view, NSourceFile> m_sources;
-        std::string_view m_path;
+        Vector<NSourceFile> m_sources;
+        String m_path;
     };
 }

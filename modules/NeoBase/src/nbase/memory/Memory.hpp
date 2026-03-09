@@ -1,10 +1,14 @@
-// Created by cubevlmu on 2025/8/4.
-// Copyright (c) 2025 Flybird Games. All rights reserved.
+/*
+ * @Author: cubevlmu khfahqp@gmail.com
+ * @LastEditors: cubevlmu khfahqp@gmail.com
+ * Copyright (c) 2026 by FlybirdGames, All Rights Reserved. 
+ */
 
 #pragma once
 
 #include <nbase/common.hpp>
 #include <nbase/base/TypeTraits.hpp>
+#include <nbase/memory/StlAllocator.hpp>
 
 #include <cstring>
 #include <new>
@@ -158,9 +162,9 @@ namespace neo {
     }
 
     template<class T, class... Args>
-    inline T *newObject(Args &&...args) {
+    inline T* newObject(Args&&...args) {
         T *ptr = (T *) neo::allocAligned(sizeof(T), alignof(T));
-        new(ptr) T(forward<Args>(args)...);
+        new(ptr) T(std::forward<Args>(args)...);
         return ptr;
     }
 
@@ -174,13 +178,44 @@ namespace neo {
     template<class T>
     inline void deletePtr(T *ptr) {
         memory::destructItem(ptr);
-        defaultFree(ptr);
+        neo::free(ptr);
     }
 
     template<class T>
     inline void deleteArray(T *ptr, u32 count) {
         memory::destructItems(ptr, count);
-        defaultFree(ptr);
+        neo::free(ptr);
     }
+
+	template<typename T>
+	struct CustomDeleter {
+		void operator()(T* ptr) const noexcept {
+			neo::deletePtr(ptr);
+		}
+	};
+
+	template<typename T>
+	using Unique = std::unique_ptr<T, CustomDeleter<T>>;
+
+	template<typename T, typename... Args>
+	Unique<T> makeUnique(Args&&... args)
+	{
+		T* raw = neo::newObject<T>(std::forward<Args>(args)...);
+		return Unique<T>(raw);
+	}
+
+	template<typename T>
+	using Shared = std::shared_ptr<T>;
+
+	template<typename T, typename... Args>
+	Shared<T> makeShared(Args&&... args)
+	{
+		T* raw = neo::newObject<T>(std::forward<Args>(args)...);
+
+		return Shared<T>(raw, [](T* ptr) {
+			neo::deletePtr(ptr);
+		});
+	}
+
 
 }

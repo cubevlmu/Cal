@@ -1,5 +1,8 @@
-// Created by cubevlmu on 2025/8/15.
-// Copyright (c) 2025 Flybird Games. All rights reserved.
+/*
+ * @Author: cubevlmu khfahqp@gmail.com
+ * @LastEditors: cubevlmu khfahqp@gmail.com
+ * Copyright (c) 2026 by FlybirdGames, All Rights Reserved. 
+ */
 
 #include "CmdParser.hpp"
 
@@ -22,7 +25,7 @@ namespace neo {
         m_flags.insert({flag, CmdFlag { .bFlag = bPtr }});
     }
 
-    void NCmdParser::regStr(const char *flag, std::string& sPtr) {
+    void NCmdParser::regStr(const char *flag, String& sPtr) {
         if (m_flags.contains(flag)) {
             return;
         }
@@ -32,7 +35,7 @@ namespace neo {
     bool NCmdParser::parse() {
         psize idx = 0;
         const psize max = m_cmdLine.length();
-        const std::string_view cmdLineView = m_cmdLine.c_str();
+        const StringView cmdLineView = m_cmdLine.c_str();
 
         while (idx < max) {
             char c = m_cmdLine[idx];
@@ -57,8 +60,8 @@ namespace neo {
             const psize start = idx;
             bool isQuote = false;
             bool checkFlag = false;
-            std::string_view flag;
-            std::string value;
+            StringView flag;
+            String value;
 
             while (idx < max && (!std::isspace(m_cmdLine[idx]) || isQuote)) {
                 if (m_cmdLine[idx] == '=') {

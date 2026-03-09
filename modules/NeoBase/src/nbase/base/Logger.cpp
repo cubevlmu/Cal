@@ -4,6 +4,7 @@
 #include "Logger.hpp"
 
 #include <memory>
+#include <string>
 #include "nbase/utils/StringUtils.hpp"
 
 #include "spdlog/sinks/stdout_color_sinks.h"
@@ -15,23 +16,23 @@ namespace neo {
 
 	static std::unique_ptr<spdlog::logger> s_logger;
 
-	void Logger::emitLog(const std::string& msg, LogLevel level) {
+	void Logger::emitLog(const String& msg, LogLevel level) {
 		switch(level)
 		{
 		case LogLevel::kWarning:
-			s_logger->warn(msg);
+			s_logger->warn(msg.c_str());
 			break;
 		case LogLevel::kError:
-			s_logger->error(msg);
+			s_logger->error(msg.c_str());
 			break;
 		case LogLevel::kDebug:
-			s_logger->debug(msg);
+			s_logger->debug(msg.c_str());
 			break;
 		case LogLevel::kInfo:
-			s_logger->info(msg);
+			s_logger->info(msg.c_str());
 			break;
 		case LogLevel::kTrace:
-			s_logger->trace(msg);
+			s_logger->trace(msg.c_str());
 			break;
 		}
 	}
@@ -48,7 +49,7 @@ namespace neo {
 		logSinks.emplace_back(std::make_shared<spdlog::sinks::stdout_color_sink_mt>());
 		logSinks[0]->set_pattern(FORMAT);
 		if (record) {
-			logSinks.emplace_back(std::make_shared<spdlog::sinks::basic_file_sink_mt>(fileName, true));
+			logSinks.emplace_back(std::make_shared<spdlog::sinks::basic_file_sink_mt>(std::string(fileName.c_str()), true));
 			logSinks[1]->set_pattern(FORMAT);
 		}
 

@@ -1,0 +1,7 @@
+fun identity<T>(value : T) T {
+    return value;
+}
+
+fun constrained<T : test::Base>(value : T) T {
+    return value;
+}

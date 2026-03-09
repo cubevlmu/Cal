@@ -1,21 +1,27 @@
-// Created by cubevlmu on 2025/10/3.
-// Copyright (c) 2025 Flybird Games. All rights reserved.
+/*
+ * @Author: cubevlmu khfahqp@gmail.com
+ * @LastEditors: cubevlmu khfahqp@gmail.com
+ * Copyright (c) 2026 by FlybirdGames, All Rights Reserved.
+ */
 
 #pragma once
 
-#include <string>
-#include <string_view>
-#include <vector>
+#include <nbase/memory/Memory.hpp>
 #include <nbase/base/Serializer.hpp>
 
 #include "neo/diagnose/SourceLoc.hpp"
 
-namespace neo {
+#include <cstddef>
+#include <new>
+
+namespace neo
+{
 
     class NDebugOutput;
     class NSerializer;
 
-    enum ASTType {
+    enum ASTType
+    {
         kUnknown,
         kStatment,
         kDeclaration,
@@ -24,42 +30,102 @@ namespace neo {
         kTypePointer,
         kUnused1
     };
-    std::string_view getTypeString(ASTType);
+    StringView getTypeString(ASTType);
 
+    struct Attribute
+    {
+        String name;
+        Vector<class ASTExpr *> arguments;
 
-    struct Attribute {
-        std::string name;
-        std::vector<class ASTExpr*> arguments;
+        void debugPrint(NDebugOutput &out);
+
+        static void *operator new(std::size_t size)
+        {
+            return neo::allocAligned(size, alignof(std::max_align_t));
+        }
+
+        static void operator delete(void *ptr) noexcept
+        {
+            neo::free(ptr);
+        }
+
+        static void *operator new(std::size_t size, std::align_val_t align)
+        {
+            return neo::allocAligned(size, static_cast<psize>(align));
+        }
+
+        static void operator delete(void *ptr, std::align_val_t) noexcept
+        {
+            neo::free(ptr);
+        }
+
+        static void *operator new(std::size_t, void *ptr) noexcept
+        {
+            return ptr;
+        }
+
+        static void operator delete(void *, void *) noexcept
+        {
+        }
     };
-
 
     class ASTNode : public ISerializable
     {
     public:
         explicit ASTNode(ASTType type)
-            : m_type{ type }
+            : m_type{type}
         {
         }
         ~ASTNode() override = default;
 
     public:
-        virtual void debugPrint(NDebugOutput& output);
+        virtual void debugPrint(NDebugOutput &output);
 
-        void read(NSerializer* s) override;
-        void write(NSerializer* s) override;
+        void read(NSerializer *s) override;
+        void write(NSerializer *s) override;
 
-        ASTType getType() const {
+        ASTType getType() const
+        {
             return m_type;
         }
-        
+
         SourceLoc m_loc;
+
+        static void *operator new(std::size_t size)
+        {
+            return neo::allocAligned(size, alignof(std::max_align_t));
+        }
+
+        static void operator delete(void *ptr) noexcept
+        {
+            neo::free(ptr);
+        }
+
+        static void *operator new(std::size_t size, std::align_val_t align)
+        {
+            return neo::allocAligned(size, static_cast<psize>(align));
+        }
+
+        static void operator delete(void *ptr, std::align_val_t) noexcept
+        {
+            neo::free(ptr);
+        }
+
+        static void *operator new(std::size_t, void *ptr) noexcept
+        {
+            return ptr;
+        }
+
+        static void operator delete(void *, void *) noexcept
+        {
+        }
 
     private:
         ASTType m_type;
     };
 
-
-    enum class StmtKind {
+    enum class StmtKind
+    {
         kUnknown,
         kExpression,
         kCompound,
@@ -73,36 +139,38 @@ namespace neo {
         kImport,
         kDecl,
         kExpr,
-		kTry,
-		kCatch,
-		kThrow
+        kTry,
+        kCatch,
+        kThrow
     };
-    std::string_view getTypeString(StmtKind);
-    class ASTStmt* createStmt(StmtKind);
-
+    StringView getTypeString(StmtKind);
+    class ASTStmt *createStmt(StmtKind);
 
     class ASTStmt : public ASTNode
     {
     public:
         explicit ASTStmt(StmtKind kind)
-            : ASTNode(ASTType::kStatment)
-            , m_kind{ kind }
+            : ASTNode(ASTType::kStatment), m_kind{kind}
         {
         }
         ~ASTStmt() override = default;
 
     public:
-        NE_FORCE_INLINE StmtKind getStmtKind() const {
+        virtual void debugPrint(NDebugOutput &output) override;
+
+    public:
+        NE_FORCE_INLINE StmtKind getStmtKind() const
+        {
             return m_kind;
         }
-        virtual void visit(class ASTVisitor& visitor) {}
+        virtual void visit(class ASTVisitor &visitor) {}
 
     private:
         const StmtKind m_kind;
     };
 
-
-    enum class ExprKind {
+    enum class ExprKind
+    {
         kUnknown,
         kNumberLit,
         kBoolLit,
@@ -113,53 +181,61 @@ namespace neo {
         kVar,
         kCast,
         kNew,
-		kStringLit,
-		kCharLit,
-		kIdent,
-		kNull,
-		kLambda,
-		kThis,
-		kSuper,
-		kArrayLit
+        kStringLit,
+        kCharLit,
+        kIdent,
+        kNull,
+        kLambda,
+        kThis,
+        kSuper,
+        kArrayLit,
+        kSubscript,
+        kPostfix,
+        kCond,
+        kComma
     };
-    std::string_view getTypeString(ExprKind);
-    class ASTExpr* createExpr(ExprKind);
-
+    StringView getTypeString(ExprKind);
+    class ASTExpr *createExpr(ExprKind);
 
     class ASTExpr : public ASTStmt
     {
     public:
         explicit ASTExpr(ExprKind kind)
-            : ASTStmt(StmtKind::kExpression)
-            , m_kind {kind} 
-        {}
+            : ASTStmt(StmtKind::kExpression), m_kind{kind}
+        {
+        }
         ~ASTExpr() override = default;
 
     public:
-        NE_FORCE_INLINE ExprKind getExprKind() const {
-            return m_kind; 
+        NE_FORCE_INLINE ExprKind getExprKind() const
+        {
+            return m_kind;
         }
+
+    public:
+        virtual void debugPrint(NDebugOutput &out) override;
 
     private:
         ExprKind m_kind;
     };
 
+    template <typename T>
+    class SingletonExpr
+    {
+    public:
+        static T *getInstance()
+        {
+            static T instance{};
+            return &instance;
+        }
 
-	template <typename T>
-	class SingletonExpr {
-	public:
-		static T* getInstance() {
-			static T instance{};
-			return &instance;
-		}
+    protected:
+        SingletonExpr() {}
+        ~SingletonExpr() {}
+    };
 
-	protected:
-		SingletonExpr() {}
-		~SingletonExpr() {}
-	};
-
-
-    enum class DeclKind {
+    enum class DeclKind
+    {
         kUnknown,
         kVar,
         kFunc,
@@ -171,11 +247,11 @@ namespace neo {
         kEnum,
         kTopLevelDecls
     };
-    std::string_view getTypeString(DeclKind);
-    class ASTDecl* createDecl(DeclKind);
+    StringView getTypeString(DeclKind);
+    class ASTDecl *createDecl(DeclKind);
 
-
-    struct ASTModifier {
+    struct ASTModifier
+    {
         bool isStatic : 1 = false;
         bool isFinal : 1 = false;
         bool isConst : 1 = false;
@@ -187,44 +263,44 @@ namespace neo {
         ASTModifier() noexcept;
         ASTModifier(bool s, bool f, bool c, bool priv, bool prot, bool inter, bool inl) noexcept;
 
-        ASTModifier(const ASTModifier& other) noexcept;
-        ASTModifier& operator=(const ASTModifier& other) noexcept;
+        ASTModifier(const ASTModifier &other) noexcept;
+        ASTModifier &operator=(const ASTModifier &other) noexcept;
 
-        ASTModifier(ASTModifier&& other) noexcept;
-        ASTModifier& operator=(ASTModifier&& other) noexcept;
+        ASTModifier(ASTModifier &&other) noexcept;
+        ASTModifier &operator=(ASTModifier &&other) noexcept;
 
-        bool operator==(const ASTModifier& other) const noexcept;
-        bool operator!=(const ASTModifier& other) const noexcept;
+        bool operator==(const ASTModifier &other) const noexcept;
+        bool operator!=(const ASTModifier &other) const noexcept;
     };
 
-
-    class ASTDecl : public ASTNode 
+    class ASTDecl : public ASTNode
     {
     public:
-        explicit ASTDecl(DeclKind kind) 
-            : ASTNode(ASTType::kDeclaration)
-            , m_kind {kind} 
-        {}
+        explicit ASTDecl(DeclKind kind)
+            : ASTNode(ASTType::kDeclaration), m_kind{kind}
+        {
+        }
         ~ASTDecl() override;
 
     public:
-        NE_FORCE_INLINE DeclKind getDeclKind() const {
-            return m_kind; 
+        NE_FORCE_INLINE DeclKind getDeclKind() const
+        {
+            return m_kind;
         }
 
-        void read(NSerializer* s) override;
-        void write(NSerializer* s) override;
+        void read(NSerializer *s) override;
+        void write(NSerializer *s) override;
 
-        void debugPrint(NDebugOutput& output) override;
+        virtual void debugPrint(NDebugOutput &out) override;
 
     public:
         bool isMarkedExport;
-        std::vector<Attribute*> attributes;
+        Vector<Attribute *> attributes;
 
         ASTModifier modifier;
 
     private:
         DeclKind m_kind;
     };
-    
+
 }

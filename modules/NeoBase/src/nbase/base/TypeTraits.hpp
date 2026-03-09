@@ -1,7 +1,8 @@
-// Created by cubevlmu on 2025/8/4.
-// Copyright (c) 2025 Flybird Games. 
-// 
-// TypeTraits.hpp - Lightweight type traits & utilities
+/*
+ * @Author: cubevlmu khfahqp@gmail.com
+ * @LastEditors: cubevlmu khfahqp@gmail.com
+ * Copyright (c) 2026 by FlybirdGames, All Rights Reserved. 
+ */
 
 #pragma once
 

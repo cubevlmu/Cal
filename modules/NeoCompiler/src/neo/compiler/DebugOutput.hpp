@@ -1,5 +1,8 @@
-// Created by cubevlmu on 2025/10/3.
-// Copyright (c) 2025 Flybird Games. All rights reserved.
+/*
+ * @Author: cubevlmu khfahqp@gmail.com
+ * @LastEditors: cubevlmu khfahqp@gmail.com
+ * Copyright (c) 2026 by FlybirdGames, All Rights Reserved.
+ */
 
 #pragma once
 
@@ -7,64 +10,184 @@
 #include <sstream>
 
 #include <nbase/base/Logger.hpp>
+#include <nbase/base/Assert.hpp>
+#include <nbase/base/TypeTraits.hpp>
 
-namespace neo {
+#include <string>
+#include <stack>
 
-    class NDebugOutput
-    {
-    public:
-        virtual ~NDebugOutput() = default;
+#include <neo/ast/Decl.hpp>
+#include <neo/ast/Stmts.hpp>
 
-        virtual void writeLine(const std::string_view& line) = 0;
-        virtual void write(const std::string_view& txt) = 0;
+namespace neo
+{
+	struct TreeNode
+	{
+		String name;
+		String value;
+		Vector<TreeNode> nodes;
+	};
+	TreeNode *treeAddChild(TreeNode *c, const String &name, const String &value = "");
 
-        template <typename... Args>
-        NE_FORCE_INLINE void write(std::string_view fmtStr, const Args&... args) {
-              write(neo::format(fmtStr, args...));
-        }
-        template <typename... Args>
-        NE_FORCE_INLINE void writeLine(std::string_view fmtStr, const Args&... args) {
-            writeLine(neo::format(fmtStr, args...));
-        }
+	class NDebugOutput
+	{
+	public:
+		NDebugOutput();
+		virtual ~NDebugOutput();
 
-        virtual bool print() = 0;
-    };
+	public:
+		virtual bool print() = 0;
 
+	protected:
+		struct TreeNode *m_root;
+		struct TreeNode *m_current;
+		std::stack<struct TreeNode *> m_last;
 
-    class NConsoleOutput final : public NDebugOutput
-    {
-    public:
-        ~NConsoleOutput() override = default;
+	public:
+		void beginRoot(const StringView name);
+		void endRoot();
 
-        void writeLine(const std::string_view& line) override {
-            m_ss << line.data();
-            LogInfo("{}", m_ss.str());
+		void beginObject(const StringView name)
+		{
+			auto *node = treeAddChild(m_current, name.data(), "");
+			m_last.push(m_current);
+			m_current = node;
+		}
 
-            m_ss.clear();
-            m_ss.str("");
-        }
-        void write(const std::string_view& txt) override {
-            m_ss << txt.data();
-        }
-        bool print() override { return true; }
+		void endObject()
+		{
+			if (m_last.empty())
+				return;
+			m_current = m_last.top();
+			m_last.pop();
+		}
 
-    private:
-        std::stringstream m_ss;
-    };
+		void printItem(const StringView label, const char *value)
+		{
+			treeAddChild(m_current, label.data(), value);
+		}
 
+		void printItem(const StringView label, const StringView value)
+		{
+			treeAddChild(m_current, label.data(), value.data());
+		}
 
-    class NFileOutput final : public NDebugOutput
-    {
-    public:
-        explicit NFileOutput(const std::string_view& path);
-        ~NFileOutput() override;
+		void printItem(const StringView label, const String &value)
+		{
+			treeAddChild(m_current, label.data(), value.c_str());
+		}
 
-        void writeLine(const std::string_view& line) override;
-        void write(const std::string_view& txt) override;
-        bool print() override;
+		template <typename T>
+		void printItem(const StringView label, const T value)
+		{
+			treeAddChild(m_current, label.data(), neo::format("{}", value));
+		}
 
-    private:
-        std::ofstream m_fs;
-    };
-    
+		template <typename T, typename F>
+		void printArray(const StringView label, const Vector<T> &items, F &&f)
+		{
+			beginObject(label);
+			for (auto &item : items)
+			{
+				f(*this, item);
+			}
+			endObject();
+		}
+
+		void printArrayItem(const StringView val)
+		{
+			treeAddChild(m_current, val.data());
+		}
+
+		void printArrayItem(const String &val)
+		{
+			treeAddChild(m_current, val.c_str());
+		}
+
+		template <typename T>
+		void printArrayItem(T &&val)
+		{
+			treeAddChild(m_current, String{std::to_string(val).data()});
+		}
+
+		template <typename... Args>
+		NE_FORCE_INLINE void printItem(const StringView label, StringView fmtStr, const Args &...args)
+		{
+			printItem(label, neo::format(fmtStr, args...));
+		}
+
+		template <typename T>
+		void printChild(const StringView label, T *child)
+		{
+			if (child == nullptr)
+			{
+				printItem(label, "<null>");
+				return;
+			}
+			beginObject(label);
+
+			child->debugPrint(*this);
+			endObject();
+		}
+
+		template <typename T>
+		void printChildren(const StringView label, const Vector<T> &items)
+		{
+			if (items.size() == 0)
+			{
+				printItem(label, "<empty>");
+				return;
+			}
+			beginObject(label);
+
+			auto idx = 0;
+			for (auto item : items)
+			{
+				beginObject(neo::format("[{}]", idx));
+				if constexpr (std::is_pointer_v<T>)
+				{
+					item->debugPrint(*this);
+				}
+				else
+				{
+					item.debugPrint(*this);
+				}
+				endObject();
+				idx++;
+			}
+
+			endObject();
+		}
+	};
+
+	template <typename T>
+	void neo_ast_debug_print(NDebugOutput &o, T &&t) {}
+
+	class NConsoleOutput final : public NDebugOutput
+	{
+	public:
+		~NConsoleOutput() override = default;
+
+		bool print() override;
+
+	private:
+		std::stringstream m_ss;
+	};
+
+	class NFileOutput final : public NDebugOutput
+	{
+	public:
+		explicit NFileOutput(const StringView &path);
+		~NFileOutput() override;
+
+		bool print() override;
+		void save()
+		{
+			m_fs.close();
+		}
+
+	private:
+		std::ofstream m_fs;
+	};
+
 }

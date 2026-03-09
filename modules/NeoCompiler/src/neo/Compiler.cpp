@@ -1,7 +1,11 @@
-// Created by cubevlmu on 2025/10/3.
-// Copyright (c) 2025 Flybird Games. All rights reserved.
+/*
+ * @Author: cubevlmu khfahqp@gmail.com
+ * @LastEditors: cubevlmu khfahqp@gmail.com
+ * Copyright (c) 2026 by FlybirdGames, All Rights Reserved. 
+ */
 
 #include "Compiler.hpp"
+#include "neo/compiler/SourceDir.hpp"
 
 #include <nbase/utils/StringUtils.hpp>
 #include <nbase/base/Logger.hpp>
@@ -43,31 +47,29 @@ namespace neo {
 
         NTimer t{};
 
-		NString path {s_cfg.sourceDir.c_str()};
+        NString path {s_cfg.sourceDir.c_str()};
 		NArray<NString> results{};
 		path.split(';', results);
 
+        bool hasInput = false;
+        bool r = true;
         for (auto& str : results) {
             NSourceDir dir {str.get()};
             if (!dir.collect()) {
                 LogDebug("No source file in dir {}", str);
+                continue;
             }
-            m_soruceDirs.push_back(std::move(dir));
-        }
-
-        bool r = false;
-        for (auto& dir : m_soruceDirs) {
-            r |= dir.compile();
+            hasInput = true;
+            r &= dir.compile();
         }
 
         // generate process & link process
 
-        t.end();
-        if (!r) {
-            LogError("Result occurrenced in compile process! Compiler halt in {} s.", t.secondTime());
+        if (!hasInput || !r) {
+            LogError("Compilation failed in {} ms.", t.milliTime());
 			return 1;
         } else {
-            LogInfo("Compiler process end in {} s.", t.secondTime());
+            LogInfo("Compiler process end in {} ms.", t.milliTime());
 			return 0;
         }
     }

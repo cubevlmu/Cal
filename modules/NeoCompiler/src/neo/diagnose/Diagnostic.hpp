@@ -1,5 +1,8 @@
-// Created by cubevlmu on 2025/10/3.
-// Copyright (c) 2025 Flybird Games. All rights reserved.
+/*
+ * @Author: cubevlmu khfahqp@gmail.com
+ * @LastEditors: cubevlmu khfahqp@gmail.com
+ * Copyright (c) 2026 by FlybirdGames, All Rights Reserved. 
+ */
 
 #pragma once
 
@@ -8,7 +11,6 @@
 #include "neo/compiler/Tokens.hpp"
 
 #include <nbase/base/Assert.hpp>
-#include <vector>
 #include <type_traits>
 
 namespace neo {
@@ -24,7 +26,7 @@ namespace neo {
     struct Diagnostic {
         DiagnosticLevel level;
         SourceLoc location;
-        std::string message;
+        String message;
     };
 
 
@@ -34,27 +36,30 @@ namespace neo {
         DiagnosticCollector() = default;
 
     public:
-        void report(DiagnosticLevel level, const SourceLoc& loc, const std::string& message);
+        void report(DiagnosticLevel level, const SourceLoc& loc, const String& message);
 
-        NE_FORCE_INLINE void error(const SourceLoc& loc, const std::string& msg) {
+        NE_FORCE_INLINE void error(const SourceLoc& loc, const String& msg) {
             report(DiagnosticLevel::kError, loc, msg);
         }
-        NE_FORCE_INLINE void warning(const SourceLoc& loc, const std::string& msg) {
+        NE_FORCE_INLINE void warning(const SourceLoc& loc, const String& msg) {
             report(DiagnosticLevel::kWarning, loc, msg);
         }
-        NE_FORCE_INLINE void note(const SourceLoc& loc, const std::string& msg) {
+        NE_FORCE_INLINE void note(const SourceLoc& loc, const String& msg) {
             report(DiagnosticLevel::kNote, loc, msg);
         }
 
         NE_FORCE_INLINE bool hasError() const { return m_errorCount > 0; }
         NE_FORCE_INLINE int getErrorCount() const { return m_errorCount; }
-        const std::vector<Diagnostic>& diagnostics() const { return m_diagnostics; }
+        const Vector<Diagnostic>& diagnostics() const { return m_diagnostics; }
 
         void printAll() const;
         void clear(DiagnosticLevel flags = DiagnosticLevel::kNone);
 
     private:
-        std::vector<Diagnostic> m_diagnostics;
+        void printOne(const Diagnostic& diagnostic) const;
+
+    private:
+        Vector<Diagnostic> m_diagnostics;
         int m_errorCount = 0;
     };
 
@@ -66,12 +71,12 @@ namespace neo {
             return ErrorOr(std::move(value));
         }
 
-        static ErrorOr<T> failure(std::string errorMsg) {
+        static ErrorOr<T> failure(String errorMsg) {
             return ErrorOr(std::move(errorMsg));
         }
 
         bool hasError() const { return m_hasError; }
-        const std::string& errorMessage() const { return m_errorMessage; }
+        const String& errorMessage() const { return m_errorMessage; }
         const T& value() const { NE_ASSERT(!m_hasError); return m_value; }
         T& value() { NE_ASSERT(!m_hasError); return m_value; }
 
@@ -82,12 +87,12 @@ namespace neo {
             : m_value(std::move(val)), m_hasError(false) {
         }
 
-        ErrorOr(std::string msg)
+        ErrorOr(String msg)
             : m_errorMessage(std::move(msg)), m_hasError(true) {
         }
 
         T m_value;
-        std::string m_errorMessage;
+        String m_errorMessage;
         bool m_hasError = true;
     };
 
@@ -99,22 +104,22 @@ namespace neo {
             return {};
         }
 
-        static ErrorOr<void> failure(std::string errorMsg) {
+        static ErrorOr<void> failure(String errorMsg) {
             return {std::move(errorMsg)};
         }
 
         bool hasError() const { return m_hasError; }
-        const std::string& errorMessage() const { return m_errorMessage; }
+        const String& errorMessage() const { return m_errorMessage; }
 
         explicit operator bool() const { return !m_hasError; }
 
     private:
         ErrorOr() : m_hasError(false) {}
-        ErrorOr(std::string msg)
+        ErrorOr(String msg)
             : m_errorMessage(std::move(msg)), m_hasError(true) {
         }
 
-        std::string m_errorMessage;
+        String m_errorMessage;
         bool m_hasError = true;
     };
 
@@ -126,8 +131,8 @@ namespace neo {
         Result() = default;
 
         static Result success() { return Result{"", true}; }
-        static Result failure(std::string msg) { return Result(std::move(msg), false); }
-        static Result failure(std::string msg, DiagnosticCollector* c, NToken& t, NSourceFile* f) {
+        static Result failure(String msg) { return Result(std::move(msg), false); }
+        static Result failure(String msg, DiagnosticCollector* c, const NToken& t, NSourceFile* f) {
             c->error(t.location(f), msg);
             return Result(std::move(msg), false);
         }
@@ -136,9 +141,9 @@ namespace neo {
 
     private:
 		bool m_isOk = false;
-		std::string m_msg = "";
+		String m_msg = "";
 
-        explicit Result(std::string msg, bool isOk = false)
+        explicit Result(String msg, bool isOk = false)
 		    : m_msg {std::move(msg)}
 			, m_isOk {isOk}
 		{}
@@ -190,7 +195,117 @@ namespace neo {
     };
 
 
-    template<>
+	template<typename T>
+	class ExpectedSafe
+	{
+	public:
+		ExpectedSafe(T value)
+			: m_value(std::move(value))
+			, m_hasError(false)
+		{}
+
+		ExpectedSafe(Result error)
+			: m_result(std::move(error))
+			, m_hasError(error.hasError())
+		{}
+
+		ExpectedSafe(const ExpectedSafe&) = delete;
+		ExpectedSafe& operator=(const ExpectedSafe&) = delete;
+
+		ExpectedSafe(ExpectedSafe&& other) noexcept
+			: m_value(std::move(other.m_value))
+			, m_result(std::move(other.m_result))
+			, m_hasError(other.m_hasError)
+		{}
+
+		ExpectedSafe& operator=(ExpectedSafe&& other) noexcept {
+			if (this != &other)
+			{
+				m_value = std::move(other.m_value);
+				m_result = std::move(other.m_result);
+				m_hasError = other.m_hasError;
+			}
+			return *this;
+		}
+		~ExpectedSafe() = default;
+
+	public:
+		bool hasError() const { return m_hasError; }
+
+		const Result& result() const { return m_result; }
+		Result& result() { return m_result; }
+
+		const T& value() const {
+			NE_ASSERT(!m_hasError);
+			return m_value;
+		}
+
+		T& value() {
+			NE_ASSERT(!m_hasError);
+			return m_value;
+		}
+
+		auto operator->() {
+			NE_ASSERT(!m_hasError);
+			return m_value.operator->();
+		}
+
+		explicit operator bool() const { return !m_hasError; }
+
+	private:
+		T       m_value{};
+		Result  m_result{};
+		bool    m_hasError = false;
+	};
+
+
+	template<>
+	class ExpectedSafe<void>
+	{
+	public:
+		ExpectedSafe()
+			: m_hasError(false)
+		{}
+
+		ExpectedSafe(Result error)
+			: m_result(std::move(error))
+			, m_hasError(error.hasError())
+		{}
+
+		ExpectedSafe(const ExpectedSafe&) = delete;
+		ExpectedSafe& operator=(const ExpectedSafe&) = delete;
+
+		ExpectedSafe(ExpectedSafe&& other) noexcept
+			: m_result(std::move(other.m_result))
+			, m_hasError(other.m_hasError)
+		{}
+
+		ExpectedSafe& operator=(ExpectedSafe&& other) noexcept
+		{
+			if (this != &other)
+			{
+				m_result = std::move(other.m_result);
+				m_hasError = other.m_hasError;
+			}
+			return *this;
+		}
+
+		~ExpectedSafe() = default;
+
+	public:
+		bool hasError() const { return m_hasError; }
+
+		const Result& result() const { return m_result; }
+		Result& result() { return m_result; }
+		explicit operator bool() const { return !m_hasError; }
+
+	private:
+		Result m_result {};
+		bool   m_hasError = false;
+	};
+
+
+	template<>
     class Expected<void> 
     {
     public:

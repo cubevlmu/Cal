@@ -1,24 +1,25 @@
-// Created by cubevlmu on 2025/10/3.
-// Copyright (c) 2025 Flybird Games. All rights reserved.
+/*
+ * @Author: cubevlmu khfahqp@gmail.com
+ * @LastEditors: cubevlmu khfahqp@gmail.com
+ * Copyright (c) 2026 by FlybirdGames, All Rights Reserved. 
+ */
 
 #pragma once
 
 #include <nbase/common.hpp>
-#include "neo/compiler/SourceDir.hpp"
-
-#include <string>
+#include <nbase/memory/Memory.hpp>
 
 namespace neo {
 
     class NCmdParser;
 
-    struct CompilerConfig
+    struct CompilerConfig final
     {
-        std::string sourceDir;
+        String sourceDir;
     };
 
 
-    class NCompiler 
+    class NCompiler final
     {
     public:
         NCompiler(int argc, char** argv);
@@ -31,7 +32,5 @@ namespace neo {
 
     private:
         static CompilerConfig s_cfg;
-
-        std::vector<NSourceDir> m_soruceDirs;
     };
 }

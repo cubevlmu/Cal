@@ -1,0 +1,7 @@
+fun localDecls() {
+    test::a::tt value;
+    value.print();
+
+    Vector<i32> list;
+    Map<string, Vector<i32>> table;
+}

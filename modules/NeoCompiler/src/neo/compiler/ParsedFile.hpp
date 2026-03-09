@@ -1,26 +1,30 @@
-// Created by cubevlmu on 2025/10/3.
-// Copyright (c) 2025 Flybird Games. All rights reserved.
+/*
+ * @Author: cubevlmu khfahqp@gmail.com
+ * @LastEditors: cubevlmu khfahqp@gmail.com
+ * Copyright (c) 2026 by FlybirdGames, All Rights Reserved.
+ */
 
 #pragma once
 
-#include <vector>
+#include <nbase/memory/Memory.hpp>
 
-namespace neo {
-
+namespace neo
+{
     class ASTNode;
-    class NParsedFile 
+ 
+    class NParsedFile
     {
     public:
         NParsedFile();
         ~NParsedFile() = default;
 
-        void debugOutput(class NDebugOutput&);
-        void saveTo(const char* path);
-        bool loadFrom(const char* path);
+        void debugOutput(class NDebugOutput &);
+        void saveTo(const char *path);
+        bool loadFrom(const char *path);
 
         void clearNodes();
 
     public:
-        std::vector<ASTNode*> Nodes;
+        Vector<ASTNode *> Nodes;
     };
 }

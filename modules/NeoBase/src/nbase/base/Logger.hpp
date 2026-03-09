@@ -1,5 +1,8 @@
-// Created by cubevlmu on 2025/10/3.
-// Copyright (c) 2025 Flybird Games. All rights reserved.
+/*
+ * @Author: cubevlmu khfahqp@gmail.com
+ * @LastEditors: cubevlmu khfahqp@gmail.com
+ * Copyright (c) 2026 by FlybirdGames, All Rights Reserved. 
+ */
 
 #pragma once
 
@@ -20,14 +23,14 @@ namespace neo {
 
 	class Logger final {
 	private:
-		void emitLog(const std::string& msg, LogLevel level);
+		void emitLog(const String& msg, LogLevel level);
 
 	public:
 		Logger(const char* name, bool record);
 		~Logger() = default;
 
 		template <typename... Args>
-		NE_FORCE_INLINE void info(std::string_view fmtStr, const Args&... args) {
+		NE_FORCE_INLINE void info(StringView fmtStr, const Args&... args) {
 			emitLog(neo::format(fmtStr, std::forward<const Args&>(args)...),  LogLevel::kInfo);
 		}
 		NE_FORCE_INLINE void info(const char* msg) {
@@ -35,7 +38,7 @@ namespace neo {
 		}
 
 		template <typename... Args>
-		NE_FORCE_INLINE void warning(std::string_view fmtStr, const Args&... args) {
+		NE_FORCE_INLINE void warning(StringView fmtStr, const Args&... args) {
 			emitLog(neo::format(fmtStr, std::forward<const Args&>(args)...), LogLevel::kWarning);
 		}
 		NE_FORCE_INLINE void warning(const char* msg) {
@@ -43,7 +46,7 @@ namespace neo {
 		}
 
 		template <typename... Args>
-		NE_FORCE_INLINE void error(std::string_view fmtStr, Args&&... args) {
+		NE_FORCE_INLINE void error(StringView fmtStr, Args&&... args) {
 			emitLog(neo::format(fmtStr, std::forward<const Args&>(args)...),  LogLevel::kError);
 		}
 		NE_FORCE_INLINE void error(const char* msg) {
@@ -51,7 +54,7 @@ namespace neo {
 		}
 
 		template <typename... Args>
-		NE_FORCE_INLINE void debug(std::string_view fmtStr, const Args&... args) {
+		NE_FORCE_INLINE void debug(StringView fmtStr, const Args&... args) {
 #if NE_DEBUG
 			emitLog(neo::format(fmtStr, std::forward<const Args&>(args)...),  LogLevel::kDebug);
 #else
@@ -68,7 +71,7 @@ namespace neo {
 		}
 
 		template <typename... Args>
-		NE_FORCE_INLINE void trace(std::string_view fmtStr, const Args&... args) {
+		NE_FORCE_INLINE void trace(StringView fmtStr, const Args&... args) {
 #if NE_DEBUG
 			emitLog(neo::format(fmtStr, std::forward<const Args&>(args)...),  LogLevel::kTrace);
 #else

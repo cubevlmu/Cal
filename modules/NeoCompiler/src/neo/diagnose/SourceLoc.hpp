@@ -1,22 +1,32 @@
-// Created by cubevlmu on 2025/10/3.
-// Copyright (c) 2025 Flybird Games. All rights reserved.
+/*
+ * @Author: cubevlmu khfahqp@gmail.com
+ * @LastEditors: cubevlmu khfahqp@gmail.com
+ * Copyright (c) 2026 by FlybirdGames, All Rights Reserved.
+ */
 
 #pragma once
 
 #include <nbase/common.hpp>
-#include <string>
+#include <nbase/memory/Memory.hpp>
 
-namespace neo {
-
-    struct SourceLoc
+namespace neo
+{
+    struct SourceLoc final
     {
         psize line;
         psize column;
-        class NSourceFile* file;
+        class NSourceFile *file;
 
-        std::string toString() const;
-        void write(class NSerializer*) const;
-        void read(class NSerializer*) const;
+    public:
+        SourceLoc() : line{0}, column{0}, file{nullptr} {}
+        SourceLoc(psize line, psize column, class NSourceFile *file)
+            : line{line}, column{column}, file{file} {}
+
+    public:
+        String path() const;
+        String toString() const;
+        void write(class NSerializer *) const;
+        void read(class NSerializer *);
     };
-    
+
 }

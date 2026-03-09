@@ -2,30 +2,41 @@ Structure
 
 ```
 parseExpr
-  └── parseAssignExpr
-         └── parseLogicalOrExpr
-                └── parseLogicalAndExpr
-                       └── parseEqualityExpr
-                              └── parseRelationalExpr
-                                     └── parseAdditiveExpr
-                                            └── parseMultiplicativeExpr
-                                                   └── parseUnaryExpr
-                                                          └── parsePrimaryExpr
+ └── parseCommaExpr
+      └── parseAssignExpr
+           └── parseConditionalExpr
+                └── parseLogicalOrExpr
+                     └── parseLogicalAndExpr
+                          └── parseBitwiseOrExpr
+                               └── parseBitwiseXorExpr
+                                    └── parseBitwiseAndExpr
+                                         └── parseEqualityExpr
+                                              └── parseRelationalExpr
+                                                   └── parseShiftExpr
+                                                        └── parseAdditiveExpr
+                                                             └── parseMultiplicativeExpr
+                                                                  └── parseUnaryExpr
+                                                                       └── parsePostfixExpr
+                                                                            └── parsePrimaryExpr
+
 ```
 
-| Level | Function Name | Main Operators / Functions | Associativity | Lower Level Call | Output AST Node | Example |
-|-------|---------------|----------------------------|---------------|------------------|-----------------|---------|
-| **1️⃣** | `parsePrimaryExpr()` | Parses most basic units:<br>Literals (int/float/string/bool/char)<br>Identifiers (variable/function/class)<br>Grouped expressions `(expr)` | N/A | ❌ | `LiteralExpr`, `IdentifierExpr`, `CallExpr`, `MemberAccessExpr`, ... | `42`, `"str"`, `x`, `(a + b)`, `foo()`, `obj.member` |
-| **2️⃣** | `parseUnaryExpr()` | Prefix operations: `+`, `-`, `!`, `~`, `++`, `--`, `*` (dereference), `&` (address-of),<br>and type casting `(T)a` | Right | `parsePrimaryExpr()` | `UnaryExpr`, `CastExpr` | `-a`, `!flag`, `++i`, `(i32)val` |
-| **3️⃣** | `parseMultiplicativeExpr()` | Multiplicative: `*`, `/`, `%` | Left | `parseUnaryExpr()` | `BinaryExpr` | `a * b / c % d` |
-| **4️⃣** | `parseAdditiveExpr()` | Additive: `+`, `-` | Left | `parseMultiplicativeExpr()` | `BinaryExpr` | `a + b - c` |
-| **5️⃣** | `parseShiftExpr()` | Bit shift: `<<`, `>>` | Left | `parseAdditiveExpr()` | `BinaryExpr` | `a << 2 >> 1` |
-| **6️⃣** | `parseRelationalExpr()` | Comparison: `<`, `<=`, `>`, `>=` | Left | `parseShiftExpr()` | `BinaryExpr` | `a < b`, `x >= y` |
-| **7️⃣** | `parseEqualityExpr()` | Equality: `==`, `!=` | Left | `parseRelationalExpr()` | `BinaryExpr` | `a == b`, `x != y` |
-| **8️⃣** | `parseBitwiseAndExpr()` | Bitwise AND: `&` | Left | `parseEqualityExpr()` | `BinaryExpr` | `a & b` |
-| **9️⃣** | `parseBitwiseXorExpr()` | Bitwise XOR: `^` | Left | `parseBitwiseAndExpr()` | `BinaryExpr` | `a ^ b` |
-| **🔟** | `parseBitwiseOrExpr()` | Bitwise OR: `\|` | Left | `parseBitwiseXorExpr()` | `BinaryExpr` | `a \| b` |
-| **11️⃣** | `parseLogicalAndExpr()` | Logical AND: `&&` | Left | `parseBitwiseOrExpr()` | `BinaryExpr` | `a && b` |
-| **12️⃣** | `parseLogicalOrExpr()` | Logical OR: `\|\|` | Left | `parseLogicalAndExpr()` | `BinaryExpr` | `a \|\| b` |
-| **13️⃣** | `parseAssignExpr()` | Assignment & compound assignment: `=`, `+=`, `-=`, `*=`, `/=`, `%=`, etc. | Right | `parseLogicalOrExpr()` | `AssignExpr` | `a = b`, `x += 1` |
-| **14️⃣** | `parseExpr()` | Expression entry point, may handle multiple expression combinations, comma expressions, etc. | Left | `parseAssignExpr()` | `ExprList`, `CommaExpr`, or directly returns sub-expression | `a = 1, b = 2` |
+| Level     | Function Name                 | Main Operators / Forms                                                              | Associativity | Lower Level Call            | Output AST Node                                          | Example                                   |
+| :-------- | :---------------------------- | :---------------------------------------------------------------------------------- | :-----------: | :-------------------------- | :------------------------------------------------------- | :---------------------------------------- |
+| **1️⃣**    | `parsePrimaryExpr()`          | Basic units:<br>Literals (int/float/string/bool)<br>Identifiers<br>Parenthesized `(expr)` | N/A           | ❌                          | `LiteralExpr`, `IdentifierExpr`, `ParenExpr`             | `42`, `"hi"`, `flag`, `(a + b)`           |
+| **2️⃣**    | `parsePostfixExpr()`          | Postfix operations:<br>Function call `()`, member access `.`, subscript `[]`, postfix `++`/`--` | Left          | `parsePrimaryExpr()`        | `CallExpr`, `MemberExpr`, `SubscriptExpr`, `PostfixExpr` | `obj.field`, `arr[i]`, `foo(1, 2)`, `a++` |
+| **3️⃣**    | `parseUnaryExpr()`            | Prefix operations: `+`, `-`, `!`, `~`, `++`, `--`,<br>Type cast `(T)expr`, `new`, `delete` | Right         | `parsePostfixExpr()`        | `UnaryExpr`, `CastExpr`, `NewExpr`                       | `-a`, `!ok`, `++x`, `(i32)y`              |
+| **4️⃣**    | `parseMultiplicativeExpr()`   | Multiplication/Division/Modulo: `*`, `/`, `%`                                       | Left          | `parseUnaryExpr()`          | `BinaryExpr`                                             | `a * b / c`                               |
+| **5️⃣**    | `parseAdditiveExpr()`         | Addition/Subtraction: `+`, `-`                                                      | Left          | `parseMultiplicativeExpr()` | `BinaryExpr`                                             | `a + b - c`                               |
+| **6️⃣**    | `parseShiftExpr()`            | Bit shifts: `<<`, `>>`                                                              | Left          | `parseAdditiveExpr()`       | `BinaryExpr`                                             | `a << 2 >> 1`                             |
+| **7️⃣**    | `parseRelationalExpr()`       | Relational comparisons: `<`, `<=`, `>`, `>=`, `is`, `as`                            | Left          | `parseShiftExpr()`          | `BinaryExpr`, `TypeCheckExpr`                            | `a < b`, `x is Foo`                       |
+| **8️⃣**    | `parseEqualityExpr()`         | Equality comparisons: `==`, `!=`                                                    | Left          | `parseRelationalExpr()`     | `BinaryExpr`                                             | `a == b`, `x != y`                        |
+| **9️⃣**    | `parseBitwiseAndExpr()`       | Bitwise AND: `&`                                                                    | Left          | `parseEqualityExpr()`       | `BinaryExpr`                                             | `a & b`                                   |
+| **🔟**     | `parseBitwiseXorExpr()`       | Bitwise XOR: `^`                                                                    | Left          | `parseBitwiseAndExpr()`     | `BinaryExpr`                                             | `a ^ b`                                   |
+| **1️⃣1️⃣** | `parseBitwiseOrExpr()`        | Bitwise OR: `\|`                                                                     | Left          | `parseBitwiseXorExpr()`     | `BinaryExpr`                                             | `a \| b`                                  |
+| **1️⃣2️⃣** | `parseLogicalAndExpr()`       | Logical AND: `&&`                                                                   | Left          | `parseBitwiseOrExpr()`      | `BinaryExpr`                                             | `a && b`                                  |
+| **1️⃣3️⃣** | `parseLogicalOrExpr()`        | Logical OR: `\|\|`                                                                   | Left          | `parseLogicalAndExpr()`     | `BinaryExpr`                                             | `a \|\| b`                                |
+| **1️⃣4️⃣** | `parseConditionalExpr()`      | Conditional operator: `cond ? trueExpr : falseExpr`                                 | Right         | `parseLogicalOrExpr()`      | `ConditionalExpr`                                        | `a ? b : c`                               |
+| **1️⃣5️⃣** | `parseAssignExpr()`           | Assignment & compound assignment: `=`, `+=`, `-=`, `*=`, `/=` etc.                  | Right         | `parseConditionalExpr()`    | `AssignExpr`                                             | `x = 10`, `a += b`                        |
+| **1️⃣6️⃣** | `parseCommaExpr()` (Optional) | Comma expression (if supported): `,`                                                | Left          | `parseAssignExpr()`         | `CommaExpr`                                              | `a = 1, b = 2`                            |
+| **1️⃣7️⃣** | `parseExpr()`                 | Expression entry point: returns single or multiple expressions (e.g., list initialization, statement entry) | Left          | `parseCommaExpr()`          | `ExprList` / sub-expression                              | `a = b + c`                               |

@@ -1,5 +1,8 @@
-// Created by cubevlmu on 2025/10/3.
-// Copyright (c) 2025 Flybird Games. All rights reserved.
+/*
+ * @Author: cubevlmu khfahqp@gmail.com
+ * @LastEditors: cubevlmu khfahqp@gmail.com
+ * Copyright (c) 2026 by FlybirdGames, All Rights Reserved. 
+ */
 
 #pragma once
 
@@ -178,9 +181,27 @@ namespace neo {
 		// Appends an array of characters to the string.
 		void append(const char* chars, i32 count);
 		// Appends the specified text to this string.
+		NE_FORCE_INLINE NString& append(const char* text)
+		{
+			append(&text[0], strlen(text));
+			return *this;
+		}
+		// Appends the specified text to this string.
 		NE_FORCE_INLINE NString& append(const NString& text)
 		{
 			append(text.get(), text.length());
+			return *this;
+		}
+		// Appends the specified text to this string.
+		NE_FORCE_INLINE NString& append(const std::string& text)
+		{
+			append(&text[0], text.length());
+			return *this;
+		}
+		// Appends the specified text to this string.
+		NE_FORCE_INLINE NString& append(const std::string_view text)
+		{
+			append(&text[0], text.length());
 			return *this;
 		}
 		// Appends the specified character to this string.

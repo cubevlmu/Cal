@@ -1,5 +1,8 @@
-// Created by cubevlmu on 2025/8/5.
-// Copyright (c) 2025 Flybird Games. All rights reserved.
+/*
+ * @Author: cubevlmu khfahqp@gmail.com
+ * @LastEditors: cubevlmu khfahqp@gmail.com
+ * Copyright (c) 2026 by FlybirdGames, All Rights Reserved. 
+ */
 
 #include "Memory.hpp"
 
@@ -11,6 +14,8 @@
 #include <memory>
 #endif
 
+#include <cstddef>
+
 namespace neo {
 
 #if NE_USE_RPMALLOC
@@ -18,7 +23,7 @@ namespace neo {
 #define align_mem_up(num, align) (((num) + ((align) - 1)) & ~((align) - 1))
 
     void *alloc(psize size) {
-        return rpmalloc(size);
+        return allocAligned(size, alignof(std::max_align_t));
     }
 
 
@@ -55,7 +60,7 @@ namespace neo {
         void* p = (void*)((u8*)ptr - offset);
 
         // Free memory
-        rpfree(ptr);
+        rpfree(p);
     }
 
 #else
@@ -64,7 +69,7 @@ namespace neo {
 #define align_mem_up(num, align) (((num) + ((align) - 1)) & ~((align) - 1))
 
 	void *alloc(psize size) {
-		return malloc(size);
+		return allocAligned(size, alignof(std::max_align_t));
 	}
 
 
@@ -101,7 +106,7 @@ namespace neo {
 		void* p = (void*)((u8*)ptr - offset);
 
 		// Free memory
-		free(ptr);
+		::free(p);
 	}
 
 #endif

@@ -1,47 +1,51 @@
-// Created by cubevlmu on 2025/10/3.
-// Copyright (c) 2025 Flybird Games. All rights reserved.
+/*
+ * @Author: cubevlmu khfahqp@gmail.com
+ * @LastEditors: cubevlmu khfahqp@gmail.com
+ * Copyright (c) 2026 by FlybirdGames, All Rights Reserved.
+ */
 
 #pragma once
 
 #include "Base.hpp"
-#include <unordered_map>
+#include <nbase/memory/Memory.hpp>
 
-namespace neo {
-
+namespace neo
+{
     class ASTTypeNode : public ASTNode
     {
     public:
-        ASTTypeNode(std::string type);
+        ASTTypeNode(String type);
         ~ASTTypeNode() override;
 
     public:
-        void debugPrint(NDebugOutput& output) override;
+        void debugPrint(NDebugOutput &output) override;
 
     public:
-        std::string typeStr;
+        String typeStr;
     };
-
 
     class ASTArrayType : public ASTTypeNode
     {
     public:
-        ASTArrayType(std::string typeStr, bool isReceiver, std::initializer_list<int> size);
+        ASTArrayType(String typeStr, bool isReceiver, std::initializer_list<int> size);
         ~ASTArrayType() override;
 
     public:
-        void debugPrint(NDebugOutput& output) override;
+        void debugPrint(NDebugOutput &output) override;
 
     public:
         bool isReceiver;
         i32 dimenssion;
-        std::vector<i32> size;
+        Vector<i32> size;
     };
-
 
     class ASTPointerType : public ASTTypeNode
     {
     public:
-        ASTPointerType(std::string typeStr);
+        ASTPointerType(String typeStr);
         ~ASTPointerType() override;
+
+    public:
+        void debugPrint(NDebugOutput &output) override;
     };
 }

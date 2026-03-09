@@ -1,5 +1,8 @@
-// Created by cubevlmu on 2025/8/16.
-// Copyright (c) 2025 Flybird Games. All rights reserved.
+/*
+ * @Author: cubevlmu khfahqp@gmail.com
+ * @LastEditors: cubevlmu khfahqp@gmail.com
+ * Copyright (c) 2026 by FlybirdGames, All Rights Reserved.
+ */
 
 #include "SourceDir.hpp"
 
@@ -9,40 +12,50 @@
 #include <filesystem>
 namespace fs = std::filesystem;
 
-namespace neo {
-
+namespace neo
+{
     NSourceDir::NSourceDir(const char *path)
-        : m_path {path}
+        : m_path{path}
     {
     }
 
-    NSourceDir::~NSourceDir() {
-
+    NSourceDir::~NSourceDir()
+    {
     }
 
-    bool NSourceDir::collect() {
-        if (!std::filesystem::exists(m_path)) {
+    bool NSourceDir::collect()
+    {
+        if (!std::filesystem::exists(m_path))
+        {
             return false;
         }
 
-        for (const auto& entry : fs::recursive_directory_iterator(m_path)) {
+        for (const auto &entry : fs::recursive_directory_iterator(m_path))
+        {
             if (!entry.is_regular_file() || entry.path().extension() != ".neo")
                 continue;
-            auto pth = fs::relative(entry, m_path).string();
-            LogDebug("Neo source file : {} / {}", m_path, pth);
-            m_sources.insert({pth, NSourceFile {this, std::move(pth)}});
+            auto pth = String{fs::relative(entry, m_path.c_str()).string().c_str()};
+
+            std::filesystem::path p(m_path.data());
+            p /= pth.c_str();
+            LogDebug("Neo source file : {}", p.lexically_normal().string());
+            m_sources.push_back(NSourceFile{this, std::move(pth)});
         }
 
         return true;
     }
 
-    bool NSourceDir::compile() {
-        bool r = false;
+    bool NSourceDir::compile()
+    {
+        bool hasSource = false;
+        bool r = true;
 
-        for (auto& [_,f] : m_sources) {
-            r |= f.compile();
+        for (auto &f : m_sources)
+        {
+            hasSource = true;
+            r &= f.compile();
         }
 
-        return r;
+        return hasSource && r;
     }
 }

@@ -1,75 +1,88 @@
-// Created by cubevlmu on 2025/10/3.
-// Copyright (c) 2025 Flybird Games. All rights reserved.
+/*
+ * @Author: cubevlmu khfahqp@gmail.com
+ * @LastEditors: cubevlmu khfahqp@gmail.com
+ * Copyright (c) 2026 by FlybirdGames, All Rights Reserved.
+ */
 
 #pragma once
 
 #include <nbase/common.hpp>
 
 #include "neo/diagnose/SourceLoc.hpp"
+#include <nbase/memory/Memory.hpp>
 
-namespace neo {
+namespace neo
+{
+    enum class TokenType : u8
+    {
+        kUnknown, //
+        kEOF,     // end of file
 
-    enum class TokenType : u8 {
-        kUnknown,       //
-        kEOF,           // end of file
+        kIdentifier, // identifier
+        kTypeId,     // type identifier
 
-        kIdentifier,    // identifier
-        kTypeId,        // type identifier
+        kImport, // import
+        kExport, // export
+        kInline, // inline
+        kFinal,  // final
+        kModule, // module
+        kExtern, // extern
 
-        kImport,        // import
-        kExport,        // export
-        kInline,        // inline
-        kFinal,         // final
-        kModule,        // module
-        kExtern,        // extern
+        kFun, // function
+        kIf,
+        kElse, //
+        kFor,
+        kWhile, //
 
-        kFun,           // function
-        kIf, kElse,     //
-        kFor, kWhile,   //
+        kClass,     // class
+        kStruct,    // struct
+        kInterface, // interface
+        kAttribute, // annotation
+        kEnum,      // enum
 
-        kClass,         // class
-        kStruct,        // struct
-        kInterface,     // interface
-        kAttribute,     // annotation
-        kEnum,          // enum
+        kCtor,  // constructor
+        kDtor,  // destructor
+        kField, // field
 
-        kCtor,          // constructor
-        kDtor,          // destructor
-        kField,         // field
+        kPrivate,
+        kProtected,
+        kStatic,
+        kVirtual,  // virtual function
+        kInternal, // internal
+        kOverride, // override
+        kImpl,     // implements / implement
 
-        kPrivate, kProtected, kStatic,
-        kVirtual,       // virtual function
-        kInternal,      // internal
-        kOverride,      // override
-        kImpl,          // implements / implement
+        kVar,   // variable
+        kVal,   // non-changed variable
+        kConst, // constant
 
-        kVar,           // variable
-        kVal,           // non-changed variable
-        kConst,         // constant
+        kAdd, // +
+        kSub, // -
+        kMul, // *
+        kDiv, // /
+        kMod, // %
 
-        kAdd,           // +
-        kSub,           // -
-        kMul,           // *
-        kDiv,           // /
-        kMod,           // %
+        kIsEqual, // ==
 
-        kIsEqual,       // ==
+        kLBracket,
+        kRBracket, // [ ]
+        kLBraces,
+        kRBraces, // { }
+        kLParen,
+        kRParen, // ( )
 
-        kLBracket, kRBracket, // [ ]
-        kLBraces, kRBraces,   // { }
-        kLParen, kRParen,     // ( )
+        kCharLit,   // char
+        kStringLit, // string
+        kIntLit,    // number
+        kHexLit,    // hex number
+        kFloatLit,  // float number
 
-        kCharLit,     // char
-        kStringLit,   // string
-        kIntLit,      // number
-        kHexLit,      // hex number
-        kFloatLit,    // float number
+        kTrue,
+        kFalse, // bool value
+        kNull,  // null value
 
-        kTrue, kFalse, // bool value
-        kNull,         // null value
-
-        kFuncCall,    // reserved
-        kReturn,      // return
+        kFuncCall, // reserved
+        kReturn,   // return
 
         kComma,       // ,
         kDot,         // .
@@ -79,67 +92,91 @@ namespace neo {
         kQuestion,    // ?
         kArrow,       // ->
 
-        kLAnd,        // &&
-        kLOr,         // ||
-        kLNot,        // !
+        kLAnd, // &&
+        kLOr,  // ||
+        kLNot, // !
 
-        kEq,          // ==
-        kNeq,         // !=
-        kLt,          // <
-        kGt,          // >
-        kLe,          // <=
-        kGe,          // >=
+        kEq,  // ==
+        kNeq, // !=
+        kLt,  // <
+        kGt,  // >
+        kLe,  // <=
+        kGe,  // >=
 
-        kInc,         // ++
-        kDec,         // --
-        kShl,         // <<
-        kShr,         // >>
-        kBitAnd,      // &
-        kBitOr,       // |
-        kBitXor,      // ^
-        kBitNot,      // ~
+        kInc,    // ++
+        kDec,    // --
+        kShl,    // <<
+        kShr,    // >>
+        kBitAnd, // &
+        kBitOr,  // |
+        kBitXor, // ^
+        kBitNot, // ~
 
-        kAssign,      // =
-        kAddAssign,   // +=
-        kSubAssign,   // -=
-        kMulAssign,   // *=
-        kDivAssign,   // /=
-        kModAssign,   // %=
-        kShlAssign,   // <<=
-        kShrAssign,   // >>=
-        kAndAssign,   // &=
-        kOrAssign,    // |=
-        kXorAssign,   // ^=
+        kAssign,    // =
+        kAddAssign, // +=
+        kSubAssign, // -=
+        kMulAssign, // *=
+        kDivAssign, // /=
+        kModAssign, // %=
+        kShlAssign, // <<=
+        kShrAssign, // >>=
+        kAndAssign, // &=
+        kOrAssign,  // |=
+        kXorAssign, // ^=
 
-        kTry, kCatch, kFinally, kThrow,
-        kBreak, kContinue,
+        kTry,
+        kCatch,
+        kFinally,
+        kThrow,
+        kBreak,
+        kContinue,
         kNew,
-		kCast,
-		kThis, kSuper
+        kCast,
+        kThis,
+        kSuper
     };
-
 
     struct NToken final
     {
         TokenType type;
-        std::string value;
+        String value;
         psize line;
         psize cursor;
 
-        static std::string_view typeString(TokenType);
-        static TokenType checkIdentifier(const std::string_view& str);
-        std::string toString() const;
-        std::string_view typeString() const;
+        static StringView typeString(TokenType);
+        static TokenType checkIdentifier(const StringView &str);
+        String toString() const;
+        StringView typeString() const;
 
-        bool operator==(const NToken& other) const {
+        bool operator==(const NToken &other) const
+        {
             return type == other.type && value == other.value;
         }
-        bool operator!=(const NToken& other) const {
+        bool operator!=(const NToken &other) const
+        {
             return !(*this == other);
         }
 
-        SourceLoc location(NSourceFile* file = nullptr) const {
-            return SourceLoc { line, cursor, file };
+        SourceLoc location(NSourceFile *file = nullptr) const
+        {
+            psize normalizedCursor = cursor;
+            if (!value.empty())
+            {
+                const char first = value[0];
+                if ((first == '_' || std::isalnum(static_cast<unsigned char>(first))) && normalizedCursor >= value.length())
+                {
+                    normalizedCursor -= value.length();
+                }
+                else if (type == TokenType::kStringLit && normalizedCursor >= value.length() + 2)
+                {
+                    normalizedCursor -= value.length() + 2;
+                }
+                else if (type == TokenType::kCharLit && normalizedCursor >= 3)
+                {
+                    normalizedCursor -= 3;
+                }
+            }
+            return SourceLoc{line, normalizedCursor, file};
         }
 
         static NToken Invalid;

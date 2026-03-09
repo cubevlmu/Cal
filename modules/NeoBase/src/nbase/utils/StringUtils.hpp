@@ -1,14 +1,13 @@
-// Created by cubevlmu on 2025/10/3.
-// Copyright (c) 2025 Flybird Games. All rights reserved.
+/*
+ * @Author: cubevlmu khfahqp@gmail.com
+ * @LastEditors: cubevlmu khfahqp@gmail.com
+ * Copyright (c) 2026 by FlybirdGames, All Rights Reserved. 
+ */
 
 #pragma once
 
 #include <nbase/common.hpp>
-
-#include <string>
-#include <sstream>
-#include <array>
-#include <vector>
+#include <nbase/memory/Memory.hpp>
 
 namespace neo {
 
@@ -144,23 +143,23 @@ namespace neo {
 
 #define CONCAT_STR(NAME, ...) constexpr const char* NAME = ::neo::concatStr(__VA_ARGS__)
 
-    void replaceAll(std::string& str, const char* from, const char* to);
-    void splitStr(std::vector<std::string>& out, const std::string& str, const char* delim, bool skipEmpty = true);
-    void splitStr(std::vector<std::string>& out, const std::string& str, char delim, bool skipEmpty = true);
-    void splitAt(std::vector<std::string>& out, int pos, const std::string& str);
-    int findLast(const std::string& str, char hint);
+    void replaceAll(String& str, const char* from, const char* to);
+    void splitStr(Vector<String>& out, const String& str, const char* delim, bool skipEmpty = true);
+    void splitStr(Vector<String>& out, const String& str, char delim, bool skipEmpty = true);
+    void splitAt(Vector<String>& out, int pos, const String& str);
+    int findLast(const String& str, char hint);
     
     template <typename... T>
-    std::string msg(T&&... args) {
-        std::ostringstream oss {};
+    String msg(T&&... args) {
+	    OStringStream oss {};
         (oss << ... << args);
         return oss.str();
     }
 
     template <typename... T>
-    std::string concatStr(const T&... args) {
-        std::string r;
-        auto append = [](std::string* s, const char* v) {
+    String concatStr(const T&... args) {
+        String r;
+        auto append = [](String* s, const char* v) {
             s->append(v);
         };
         (append(&r, args), ...);

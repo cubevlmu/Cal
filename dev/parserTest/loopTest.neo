@@ -1,0 +1,8 @@
+fun loops() {
+    for (i : i32 = 0; i < 10; i++) {
+        Console.println(i);
+    }
+
+    while (true)
+        break;
+}

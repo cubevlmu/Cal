@@ -1,0 +1,8 @@
+fun a(a : i32) bool {
+   if (a == 10) {
+      return true;
+   } else if (a == 100) {
+      return false;
+   } else
+      return false;
+}

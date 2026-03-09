@@ -1,12 +1,13 @@
-// Created by cubevlmu on 2025/8/15.
-// Copyright (c) 2025 Flybird Games. All rights reserved.
+/*
+ * @Author: cubevlmu khfahqp@gmail.com
+ * @LastEditors: cubevlmu khfahqp@gmail.com
+ * Copyright (c) 2026 by FlybirdGames, All Rights Reserved. 
+ */
 
 #pragma once
 
 #include <nbase/common.hpp>
-
-#include <unordered_map>
-#include <string>
+#include <nbase/memory/Memory.hpp>
 
 namespace neo {
 
@@ -16,7 +17,7 @@ namespace neo {
     {
         union CmdFlag {
             bool* bFlag;
-            std::string* sFlag;
+            String* sFlag;
         };
 
     public:
@@ -30,11 +31,11 @@ namespace neo {
         /// Register boolean typed receiver
         void regBool(const char* flag, bool*);
         /// Register string typed receiver
-        void regStr(const char* flag, std::string&);
+        void regStr(const char* flag, String&);
 
     private:
-        std::unordered_map<std::string_view, CmdFlag> m_flags;
-        std::string m_cmdLine;
+        HashMap<StringView, CmdFlag> m_flags;
+	    String m_cmdLine;
     };
 
 }

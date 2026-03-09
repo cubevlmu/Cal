@@ -1,40 +1,125 @@
-// Created by cubevlmu on 2025/10/3.
-// Copyright (c) 2025 Flybird Games. All rights reserved.
+/*
+ * @Author: cubevlmu khfahqp@gmail.com
+ * @LastEditors: cubevlmu khfahqp@gmail.com
+ * Copyright (c) 2026 by FlybirdGames, All Rights Reserved.
+ */
 
 #include "DebugOutput.hpp"
 
 #include <filesystem>
+#include <nbase/memory/Memory.hpp>
+#include <iostream>
 
-namespace neo {
+namespace neo
+{
+	static void treePrintSub(
+		const TreeNode *node,
+		std::ostream &os,
+		const String &prefix,
+		bool isLast,
+		const String &mid,
+		const String &lastPref,
+		const String &vert,
+		const String &space)
+	{
+		os << prefix;
+		os << (isLast ? lastPref : mid);
+		os << node->name;
+		if (!node->value.empty())
+		{
+			if (!node->name.empty())
+				os << ": ";
+			os << node->value;
+		}
+		os << '\n';
 
-    NFileOutput::NFileOutput(const std::string_view& path)
-    {
-        if (std::filesystem::exists(path.data())) {
-            std::filesystem::remove(path.data());
-        }
+		String newPrefix = prefix + (isLast ? space : vert);
 
-        m_fs.open(path.data());
-        if (!m_fs.is_open()) {
-            LogError("Failed to open file");
-        }
-    }
+		for (size_t i = 0; i < node->nodes.size(); ++i)
+		{
+			treePrintSub(&node->nodes[i], os, newPrefix, i + 1 == node->nodes.size(),
+						 mid, lastPref, vert, space);
+		}
+	}
 
+	static void treePrint(TreeNode *c, std::ostream &os)
+	{
+		const String mid = "├── ";
+		const String lastPref = "└── ";
+		const String vert = "│   ";
+		const String space = "    ";
 
-    NFileOutput::~NFileOutput()
-    {
-        m_fs.close();
-    }
+		os << c->name;
+		if (!c->value.empty())
+			os << ": " << c->value;
+		os << '\n';
 
-    void NFileOutput::writeLine(const std::string_view& line) {
-        m_fs << line.data() << '\n';
-    }
+		for (size_t i = 0; i < c->nodes.size(); ++i)
+		{
+			treePrintSub(&c->nodes[i], os, "", i + 1 == c->nodes.size(), mid, lastPref, vert, space);
+		}
+	}
 
-    void NFileOutput::write(const std::string_view& line) {
-        m_fs << line.data();
-    }
+	TreeNode *treeAddChild(TreeNode *c, const String &name, const String &value)
+	{
+		NE_ASSERT(c != nullptr && "TreeNode != nullptr");
+		c->nodes.push_back(TreeNode{name, value});
+		return &c->nodes.back();
+	}
 
-    bool NFileOutput::print() {
-        // printm_fs.flags();
-        return true;
-    }
+	NDebugOutput::NDebugOutput()
+	{
+		m_root = neo::newObject<TreeNode>();
+		m_current = nullptr;
+	}
+
+	NDebugOutput::~NDebugOutput()
+	{
+		if (m_root)
+			neo::deletePtr(m_root);
+	}
+
+	void NDebugOutput::beginRoot(const StringView name)
+	{
+		m_root->name = String(name);
+		m_current = m_root;
+	}
+
+	void NDebugOutput::endRoot()
+	{
+		m_current = nullptr;
+	}
+
+	NFileOutput::NFileOutput(const StringView &path)
+	{
+		if (std::filesystem::exists(path.data()))
+		{
+			std::filesystem::remove(path.data());
+		}
+
+		m_fs.open(path.data(), std::ios::out);
+		if (!m_fs.is_open())
+		{
+			LogError("Failed to open file");
+		}
+	}
+
+	NFileOutput::~NFileOutput()
+	{
+		m_fs.close();
+	}
+
+	bool NConsoleOutput::print()
+	{
+		treePrint(m_root, std::cout);
+		return true;
+	}
+
+	bool NFileOutput::print()
+	{
+		treePrint(m_root, m_fs);
+		m_fs.flush();
+		return true;
+	}
+
 }
