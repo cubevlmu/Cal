@@ -622,6 +622,13 @@ namespace neo
 		out.endObject();
 	}
 
+	void ErrorExpr::debugPrint(NDebugOutput &out)
+	{
+		ASTExpr::debugPrint(out);
+		out.beginObject("ErrorExpr");
+		out.endObject();
+	}
+
 	void NullExpr::debugPrint(NDebugOutput &out)
 	{
 		ASTExpr::debugPrint(out);

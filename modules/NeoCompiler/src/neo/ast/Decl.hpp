@@ -9,10 +9,21 @@
 #include <utility>
 
 #include "Base.hpp"
+#include "Stmts.hpp"
 #include "Type.hpp"
 
 namespace neo
 {
+
+    class ErrorDecl : public ASTDecl
+    {
+    public:
+        ErrorDecl() : ASTDecl(DeclKind::kError) {}
+        ~ErrorDecl() override = default;
+
+    public:
+        void debugPrint(NDebugOutput &output) override;
+    };
 
     /// Variable declaration AST node contains non-changable and changable
     class VarDecl : public ASTDecl
@@ -36,13 +47,50 @@ namespace neo
         ASTExpr *initExpr = nullptr;
     };
 
+    /// Generic parameter declaration
+    class GenericParamDecl : public ASTDecl
+    {
+    public:
+        GenericParamDecl() : ASTDecl(DeclKind::kGenericParam) {}
+        GenericParamDecl(const StringView &name, ASTTypeNode *constraint = nullptr)
+            : ASTDecl(DeclKind::kGenericParam), name{name}, constraint{constraint}
+        {
+        }
+        ~GenericParamDecl() override = default;
+
+    public:
+        void debugPrint(NDebugOutput &output) override;
+
+    public:
+        String name;
+        ASTTypeNode *constraint = nullptr;
+    };
+
+    /// Import declaration AST node
+    class ImportDecl : public ASTDecl
+    {
+    public:
+        ImportDecl() : ASTDecl(DeclKind::kImport) {}
+        ImportDecl(const StringView &path)
+            : ASTDecl(DeclKind::kImport), modulePath{path}
+        {
+        }
+        ~ImportDecl() override = default;
+
+    public:
+        void debugPrint(NDebugOutput &output) override;
+
+    public:
+        String modulePath;
+    };
+
     /// Function declaration AST node for scope based function declare
     class FuncDecl : public ASTDecl
     {
     public:
         FuncDecl() : ASTDecl(DeclKind::kFunc) {}
-        FuncDecl(const StringView &name, ASTTypeNode *retType, Vector<VarDecl *> args, class CompoundStmt *body = nullptr)
-            : ASTDecl(DeclKind::kFunc), name{name}, args{std::move(args)}, returnType{retType}, funcBody{body}
+        FuncDecl(const StringView &name, Vector<GenericParamDecl *> genericParams, ASTTypeNode *retType, Vector<VarDecl *> args, class InitialStmt *init, class CompoundStmt *body = nullptr)
+            : ASTDecl(DeclKind::kFunc), name{name}, genericParams{std::move(genericParams)}, args{std::move(args)}, returnType{retType}, funcBody{body}, initStmt{init}
         {
         }
         ~FuncDecl() override = default;
@@ -52,9 +100,11 @@ namespace neo
 
     public:
         String name;
+        Vector<GenericParamDecl *> genericParams;
         Vector<VarDecl *> args;
         ASTTypeNode *returnType = nullptr;
         CompoundStmt *funcBody = nullptr;
+        class InitialStmt *initStmt = nullptr;
     };
 
     /// Field declaration AST node
@@ -112,6 +162,8 @@ namespace neo
         Vector<VarDecl *> variables;
         /// Functions of current class
         Vector<FuncDecl *> functions;
+        /// Invalid members recovered from class body
+        Vector<ASTDecl *> errorMembers;
         /// Contructors of current class.
         Vector<FuncDecl *> ctors;
         /// Destructor of current class. Nullptr for non defined.

@@ -10,6 +10,7 @@
 #include "neo/compiler/Lexer.hpp"
 #include "neo/compiler/Parser.hpp"
 #include "neo/compiler/ParsedFile.hpp"
+#include "neo/analyzer/SemanticAnalyzer.hpp"
 #include "DebugOutput.hpp"
 #include "nbase/utils/Timer.hpp"
 
@@ -150,6 +151,16 @@ namespace neo
         }
         LogDebug("Parser parse in {}ms", tm_parser.milliTime());
 
+        NTimer tm_sema{};
+        DiagnosticCollector semaDiag{};
+        SemanticAnalyzer sema{semaDiag};
+        if (auto r = sema.analyze(file); r.hasError())
+        {
+            semaDiag.printAll();
+            return false;
+        }
+        LogDebug("Semantic analyze in {}ms", tm_sema.milliTime());
+
         NTimer tm{};
         NFileOutput op{neo::format("output_ast_{}.txt", m_rPath)};
         op.beginRoot("ParserResult");
@@ -161,6 +172,14 @@ namespace neo
 #else
         if (!parser.parse())
         {
+            return false;
+        }
+
+        DiagnosticCollector semaDiag{};
+        SemanticAnalyzer sema{semaDiag};
+        if (auto r = sema.analyze(file); r.hasError())
+        {
+            semaDiag.printAll();
             return false;
         }
 #endif

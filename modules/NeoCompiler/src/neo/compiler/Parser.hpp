@@ -7,6 +7,7 @@
 #pragma once
 
 #include <nbase/common.hpp>
+#include <initializer_list>
 
 #include "neo/ast/Type.hpp"
 #include "neo/ast/Stmts.hpp"
@@ -30,18 +31,29 @@ namespace neo
 #define APPLY_MODIFIER(V, MD)     \
     do                            \
     {                             \
-        V->modifier = MD.value(); \
+        auto *_node = (V).value(); \
+        if (_node != nullptr)     \
+        {                         \
+            _node->modifier = MD.value(); \
+        }                         \
     } while (false)
 #define APPLY_MODIFIER_RAW(V, MD)    \
     do                               \
     {                                \
-        V->modifier = std::move(MD); \
+        if ((V) != nullptr)          \
+        {                            \
+            (V)->modifier = std::move(MD); \
+        }                            \
         MD = ASTModifier{};          \
     } while (false)
 #define APPLY_ATTRIBUTES(V, AT)        \
     do                                 \
     {                                  \
-        V->attributes = std::move(AT); \
+        auto *_node = (V).value();     \
+        if (_node != nullptr)          \
+        {                              \
+            _node->attributes = std::move(AT); \
+        }                              \
         AT = Vector<Attribute *>();    \
     } while (false)
 
@@ -72,6 +84,14 @@ namespace neo
         String tokenText(const NToken &token) const;
         Result unexpectedToken(const String &context);
         Result expectedToken(const String &expected, const String &context);
+        void synchronize(std::initializer_list<TokenType> tokens, bool consumeToken = false);
+        void synchronizeTopLevel();
+        void synchronizeStmt();
+        void synchronizeExpr();
+        bool shouldAbort() const;
+        ASTExpr *makeErrorExpr(const NToken &start);
+        ASTStmt *makeErrorStmt(const NToken &start);
+        ASTDecl *makeErrorDecl(const NToken &start);
 
     private:
         bool isModifier(TokenType);
@@ -85,7 +105,7 @@ namespace neo
 
         Expected<ASTTypeNode *> parseType();
 
-        Expected<ImportStmt *> parseImport();
+        Expected<ImportDecl *> parseImport();
         Expected<ModuleDecl *> parseModule();
 
         Expected<ASTDecl *> parseDecl();
@@ -103,7 +123,7 @@ namespace neo
 
         Expected<Vector<Attribute *>> parseAttributes();
         Expected<ASTModifier> parseModifier();
-        Expected<void> parseGenericSuffix(String &out);
+        Expected<void> parseGenericSuffix(String &out, Vector<GenericParamDecl *> *params = nullptr);
 
         Expected<FuncDecl *> parseFunc(bool isLambda = false);
         Expected<Vector<VarDecl *>> parseFuncArgs();
@@ -153,8 +173,10 @@ namespace neo
         NParserArgs m_args;
         DiagnosticCollector m_diag;
         NLexer *m_lexer;
+        Vector<String> m_activeGenericTypeNames;
 
-        static TokenType s_modifier[8];
+        static TokenType s_modifier[11];
         static TokenType s_declStmt[];
+        static constexpr int s_maxRecoverErrors = 20;
     };
 }

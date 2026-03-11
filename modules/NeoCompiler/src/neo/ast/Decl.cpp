@@ -10,6 +10,12 @@
 
 namespace neo
 {
+	void ErrorDecl::debugPrint(NDebugOutput &out)
+	{
+		ASTDecl::debugPrint(out);
+		out.beginObject("ErrorDecl");
+		out.endObject();
+	}
 
 	void VarDecl::read(NSerializer *s)
 	{
@@ -36,6 +42,27 @@ namespace neo
 		out.printItem("name", name);
 		out.printChild("type", type);
 		out.printChild("init", initExpr);
+
+		out.endObject();
+	}
+
+	void GenericParamDecl::debugPrint(NDebugOutput &out)
+	{
+		ASTDecl::debugPrint(out);
+		out.beginObject("GenericParamDecl");
+
+		out.printItem("name", name);
+		out.printChild("constraint", constraint);
+
+		out.endObject();
+	}
+
+	void ImportDecl::debugPrint(NDebugOutput &out)
+	{
+		ASTDecl::debugPrint(out);
+		out.beginObject("ImportDecl");
+
+		out.printItem("path", modulePath);
 
 		out.endObject();
 	}
@@ -123,9 +150,11 @@ namespace neo
 		out.beginObject("FuncDecl");
 
 		out.printItem("name", name);
+		out.printChildren("genericParams", genericParams);
 		out.printChild("return", returnType);
 		out.printChildren("args", args);
 		out.printChild("body", funcBody);
+		out.printChild("baseInitializers", initStmt);
 
 		out.endObject();
 	}
@@ -153,6 +182,7 @@ namespace neo
 		out.printChildren("fields", fields);
 		out.printChildren("variables", variables);
 		out.printChildren("functions", functions);
+		out.printChildren("errorMembers", errorMembers);
 		out.printChildren("constructors", ctors);
 		out.printChild("destructor", dtors);
 

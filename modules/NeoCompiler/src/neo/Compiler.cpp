@@ -1,7 +1,7 @@
 /*
  * @Author: cubevlmu khfahqp@gmail.com
  * @LastEditors: cubevlmu khfahqp@gmail.com
- * Copyright (c) 2026 by FlybirdGames, All Rights Reserved. 
+ * Copyright (c) 2026 by FlybirdGames, All Rights Reserved.
  */
 
 #include "Compiler.hpp"
@@ -17,45 +17,55 @@
 
 #include <iostream>
 
-namespace neo {
+namespace neo
+{
 
     CompilerConfig NCompiler::s_cfg{
-        .sourceDir = {}
-    };
+        .sourceDir = {}};
 
-    NCompiler::NCompiler(int argc, char **argv) {
+    NCompiler::NCompiler(int argc, char **argv)
+    {
         NCmdParser cmdPs{argc, argv};
         NCompiler::regFlags(&cmdPs);
-        if (!cmdPs.parse()) {
+        if (!cmdPs.parse())
+        {
             std::cerr << "Invalid arguments! Failed to parse arguments\n";
             std::exit(-1);
         }
     }
 
-    NCompiler::~NCompiler() {
+    NCompiler::~NCompiler()
+    {
     }
 
-    void NCompiler::regFlags(neo::NCmdParser* p) {
+    void NCompiler::regFlags(neo::NCmdParser *p)
+    {
         p->regStr("srcDir", s_cfg.sourceDir);
     }
 
-    int NCompiler::runCompiler() {
-        if (s_cfg.sourceDir.empty()) {
+    int NCompiler::runCompiler()
+    {
+        s_cfg.sourceDir = "E:\\Projects\\ProjectNeon\\dev\\parserTest";
+        
+        if (s_cfg.sourceDir.empty())
+        {
             LogError("No source dir input! Compiler halt.");
             return 1;
         }
 
         NTimer t{};
 
-        NString path {s_cfg.sourceDir.c_str()};
-		NArray<NString> results{};
-		path.split(';', results);
+        NString path{s_cfg.sourceDir.c_str()};
+        NArray<NString> results{};
+        path.split(';', results);
 
         bool hasInput = false;
         bool r = true;
-        for (auto& str : results) {
-            NSourceDir dir {str.get()};
-            if (!dir.collect()) {
+        for (auto &str : results)
+        {
+            NSourceDir dir{str.get()};
+            if (!dir.collect())
+            {
                 LogDebug("No source file in dir {}", str);
                 continue;
             }
@@ -65,14 +75,16 @@ namespace neo {
 
         // generate process & link process
 
-        if (!hasInput || !r) {
+        if (!hasInput || !r)
+        {
             LogError("Compilation failed in {} ms.", t.milliTime());
-			return 1;
-        } else {
+            return 1;
+        }
+        else
+        {
             LogInfo("Compiler process end in {} ms.", t.milliTime());
-			return 0;
+            return 0;
         }
     }
-
 
 }

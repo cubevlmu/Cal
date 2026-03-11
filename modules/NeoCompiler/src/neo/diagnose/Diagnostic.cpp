@@ -22,6 +22,8 @@ namespace neo {
                 return "warning";
             case DiagnosticLevel::kNote:
                 return "note";
+            case DiagnosticLevel::kHint:
+                return "hint";
             default:
                 return "diagnostic";
             }

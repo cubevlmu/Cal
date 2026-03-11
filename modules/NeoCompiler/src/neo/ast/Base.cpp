@@ -14,12 +14,13 @@ namespace neo
 
     static const char *s_ASTTypeStrings[] = {
         "kUnknown",
-        "kStatment",
+        "kStatement",
         "kDeclaration",
         "kType",
         "kTypeArray",
         "kTypePointer",
-        "_________"};
+        "kExpression",
+        "kInitializer"};
     StringView getTypeString(ASTType type)
     {
         return s_ASTTypeStrings[(int)type];
@@ -27,6 +28,7 @@ namespace neo
 
     static const char *s_StmtKindStrings[] = {
         "kUnknown",
+        "kError",
         "kExpression",
         "kCompound",
         "kIf",
@@ -41,7 +43,8 @@ namespace neo
         "kExpr",
         "kTry",
         "kCatch",
-        "kThrow"};
+        "kThrow",
+        "kInitial"};
     StringView getTypeString(StmtKind type)
     {
         return s_StmtKindStrings[(int)type];
@@ -49,6 +52,7 @@ namespace neo
 
     static const char *s_ExprKindStrings[] = {
         "kUnknown",
+        "kError",
         "kNumberLit",
         "kBoolLit",
         "kBinary",
@@ -77,6 +81,9 @@ namespace neo
 
     static const char *s_DeclKindStrings[] = {
         "kUnknown",
+        "kError",
+        "kGenericParam",
+        "kImport",
         "kVar",
         "kFunc",
         "kClass",
@@ -145,6 +152,9 @@ namespace neo
         s->write(modifier.isFinal);
         s->write(modifier.isInline);
         s->write(modifier.isProtected);
+        s->write(modifier.isVirtual);
+        s->write(modifier.isOverride);
+        s->write(modifier.isImpl);
 
         // isMarkedExport
         s->write(isMarkedExport);
@@ -169,26 +179,31 @@ namespace neo
         out.printItem("declKind", getTypeString(m_kind));
         out.printItem("exported", isMarkedExport ? "true" : "false");
 
-        out.printItem("modifier", "static={}, final={}, const={}, private={}, protected={}, internal={}, inline={}",
+        out.printItem("modifier", "static={}, final={}, const={}, private={}, protected={}, internal={}, inline={}, virtual={}, override={}, impl={}",
                       modifier.isStatic, modifier.isFinal, modifier.isConst,
                       modifier.isPrivate, modifier.isProtected,
-                      modifier.isInternal, modifier.isInline);
+                      modifier.isInternal, modifier.isInline, modifier.isVirtual,
+                      modifier.isOverride, modifier.isImpl);
 
         out.printChildren("attributes", attributes);
     }
 
     ASTModifier::ASTModifier() noexcept
         : isStatic(false), isFinal(false), isConst(false),
-          isPrivate(false), isProtected(false), isInternal(false), isInline(false) {}
+          isPrivate(false), isProtected(false), isInternal(false), isInline(false),
+          isVirtual(false), isOverride(false), isImpl(false) {}
 
-    ASTModifier::ASTModifier(bool s, bool f, bool c, bool priv, bool prot, bool inter, bool inl) noexcept
+    ASTModifier::ASTModifier(bool s, bool f, bool c, bool priv, bool prot, bool inter, bool inl, bool vt, bool over, bool impl) noexcept
         : isStatic(s), isFinal(f), isConst(c),
-          isPrivate(priv), isProtected(prot), isInternal(inter), isInline(inl) {}
+          isPrivate(priv), isProtected(prot), isInternal(inter), isInline(inl),
+          isVirtual(vt), isOverride(over), isImpl(impl) {}
 
     ASTModifier::ASTModifier(const ASTModifier &other) noexcept
         : isStatic(other.isStatic), isFinal(other.isFinal), isConst(other.isConst),
           isPrivate(other.isPrivate), isProtected(other.isProtected),
-          isInternal(other.isInternal), isInline(other.isInline) {}
+          isInternal(other.isInternal), isInline(other.isInline),
+          isVirtual(other.isVirtual), isOverride(other.isOverride),
+          isImpl(other.isImpl) {}
 
     ASTModifier &ASTModifier::operator=(const ASTModifier &other) noexcept
     {
@@ -201,6 +216,9 @@ namespace neo
             isProtected = other.isProtected;
             isInternal = other.isInternal;
             isInline = other.isInline;
+            isVirtual = other.isVirtual;
+            isOverride = other.isOverride;
+            isImpl = other.isImpl;
         }
         return *this;
     }
@@ -208,9 +226,9 @@ namespace neo
     ASTModifier::ASTModifier(ASTModifier &&other) noexcept
         : isStatic(other.isStatic), isFinal(other.isFinal), isConst(other.isConst),
           isPrivate(other.isPrivate), isProtected(other.isProtected),
-          isInternal(other.isInternal), isInline(other.isInline)
+          isInternal(other.isInternal), isInline(other.isInline),
+          isVirtual(other.isVirtual), isOverride(other.isOverride), isImpl(other.isImpl)
     {
-        // 对 bool 来说不需要清空 other
     }
 
     ASTModifier &ASTModifier::operator=(ASTModifier &&other) noexcept
@@ -224,6 +242,9 @@ namespace neo
             isProtected = other.isProtected;
             isInternal = other.isInternal;
             isInline = other.isInline;
+            isVirtual = other.isVirtual;
+            isOverride = other.isOverride;
+            isImpl = other.isImpl;
         }
         return *this;
     }
@@ -236,7 +257,10 @@ namespace neo
                isPrivate == other.isPrivate &&
                isProtected == other.isProtected &&
                isInternal == other.isInternal &&
-               isInline == other.isInline;
+               isInline == other.isInline &&
+               isVirtual == other.isVirtual &&
+               isOverride == other.isOverride &&
+               isImpl == other.isImpl;
     }
 
     bool ASTModifier::operator!=(const ASTModifier &other) const noexcept
@@ -253,7 +277,7 @@ namespace neo
 
     void ASTExpr::debugPrint(NDebugOutput &out)
     {
-        ASTStmt::debugPrint(out);
+        ASTNode::debugPrint(out);
 
         out.printItem("exprKind", getTypeString(m_kind));
     }

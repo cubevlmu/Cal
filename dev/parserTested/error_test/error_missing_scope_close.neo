@@ -1,0 +1,11 @@
+import test;
+
+fun missingFuncBodyEnd() {
+    var a : i32 = 10;
+    if (a > 0) {
+        return;
+    }
+
+class ShouldNotBeParsedAsInsideFunction {
+    fun test() {}
+}

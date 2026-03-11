@@ -33,6 +33,17 @@ namespace neo
 		String name;
 	};
 
+	/// Error expression for recovery
+	class ErrorExpr : public ASTExpr
+	{
+	public:
+		ErrorExpr() : ASTExpr(ExprKind::kError) {}
+		~ErrorExpr() override = default;
+
+	public:
+		void debugPrint(NDebugOutput &out) override;
+	};
+
 	/// Literal type enums
 	enum class LiteralType : u8
 	{

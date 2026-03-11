@@ -1,0 +1,11 @@
+interface BrokenInterface {
+    item1() i32
+    item2(args : i32) : ,
+    item3(
+}
+
+enum BrokenEnum {
+    Item1 =,
+    ,
+    Item3
+}

@@ -20,6 +20,7 @@ namespace neo {
         kError = 1 << 0,
         kWarning = 1 << 1,
         kNote = 1 << 2,
+        kHint = 1 << 3,
     };
 
 
@@ -46,6 +47,9 @@ namespace neo {
         }
         NE_FORCE_INLINE void note(const SourceLoc& loc, const String& msg) {
             report(DiagnosticLevel::kNote, loc, msg);
+        }
+        NE_FORCE_INLINE void hint(const SourceLoc& loc, const String& msg) {
+            report(DiagnosticLevel::kHint, loc, msg);
         }
 
         NE_FORCE_INLINE bool hasError() const { return m_errorCount > 0; }

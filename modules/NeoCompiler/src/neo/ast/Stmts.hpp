@@ -7,6 +7,7 @@
 #pragma once
 
 #include "Base.hpp"
+#include "Type.hpp"
 
 #include <nbase/types/String.hpp>
 #include <initializer_list>
@@ -86,7 +87,7 @@ namespace neo
     public:
         ForStmt() : ASTStmt(StmtKind::kFor) {}
         ForStmt(class VarDecl *decl, ASTExpr *cond, ASTExpr *update, ASTStmt *body)
-            : ASTStmt(StmtKind::kFor), declVar{decl}, cond{cond}, update{update}, forBody{body}
+            : ASTStmt(StmtKind::kFor), declVar{decl}, cond{cond}, update{update}, body{body}
         {
         }
         ~ForStmt() override = default;
@@ -98,7 +99,7 @@ namespace neo
         VarDecl *declVar;
         ASTExpr *cond;
         ASTExpr *update;
-        ASTStmt *forBody;
+        ASTStmt *body;
     };
 
     /// foreach-loop statement AST node
@@ -148,13 +149,13 @@ namespace neo
         void debugPrint(NDebugOutput &out) override;
     };
 
-    /// Catch block for exception handling
-    class CatchStmt : public ASTStmt
+    /// Catch clause for exception handling
+    class CatchClause : public ASTNode
     {
     public:
-        CatchStmt() : ASTStmt(StmtKind::kCatch) {}
-        CatchStmt(class VarDecl *type, ASTStmt *body)
-            : ASTStmt(StmtKind::kCatch), errorType{type}, handlerBody{body}
+        CatchClause() : ASTNode(ASTType::kStatement) {}
+        CatchClause(String varName, ASTTypeNode *type, ASTStmt *body)
+            : ASTNode(ASTType::kStatement), varName{std::move(varName)}, errorType{type}, handlerBody{body}
         {
         }
 
@@ -162,7 +163,8 @@ namespace neo
         void debugPrint(NDebugOutput &out) override;
 
     public:
-        VarDecl *errorType;
+        String varName;
+        ASTTypeNode *errorType = nullptr;
         ASTStmt *handlerBody;
     };
 
@@ -181,7 +183,8 @@ namespace neo
 
     public:
         ASTStmt *body;
-        Vector<CatchStmt *> handlers;
+        Vector<CatchClause *> handlers;
+        ASTStmt *finallyBody = nullptr;
     };
 
     /// Exception emit statement (throw)
@@ -234,7 +237,7 @@ namespace neo
     {
     public:
         DeclStmt(ASTDecl *decl)
-            : ASTStmt(StmtKind::kDecl), declType{decl}
+            : ASTStmt(StmtKind::kDecl), decl{decl}
         {
         }
         ~DeclStmt() override = default;
@@ -243,7 +246,7 @@ namespace neo
         void debugPrint(NDebugOutput &out) override;
 
     public:
-        ASTDecl *declType;
+        ASTDecl *decl;
     };
 
     /// Expression container for scope expression statement
@@ -261,5 +264,28 @@ namespace neo
 
     public:
         ASTExpr *expr;
+    };
+
+    class ErrorStmt : public ASTStmt
+    {
+    public:
+        ErrorStmt() : ASTStmt(StmtKind::kError) {}
+        ~ErrorStmt() override = default;
+
+    public:
+        void debugPrint(NDebugOutput &output) override;
+    };
+
+    class InitialStmt : public ASTNode
+    {
+    public:
+        InitialStmt() : ASTNode(ASTType::kInitializer) {}
+        ~InitialStmt() override = default;
+
+    public:
+        void debugPrint(NDebugOutput& out) override;
+
+    public:
+        Vector<ASTExpr*> initialStmts;
     };
 }

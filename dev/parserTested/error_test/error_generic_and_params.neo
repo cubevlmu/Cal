@@ -1,0 +1,10 @@
+fun brokenGeneric<T : >(T value) {
+    value.print();
+}
+
+fun brokenArgs(a : , b i32, c : const) {
+}
+
+fun brokenCall() {
+    brokenGeneric<int(10);
+}

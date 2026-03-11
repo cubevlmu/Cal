@@ -19,7 +19,7 @@ namespace neo
 	void CompoundStmt::debugPrint(NDebugOutput &out)
 	{
 		ASTStmt::debugPrint(out);
-		out.beginObject("CompondStmt");
+		out.beginObject("CompoundStmt");
 
 		out.printChildren("statements", statements);
 
@@ -66,7 +66,7 @@ namespace neo
 		out.printChild("declaration", declVar);
 		out.printChild("cond", cond);
 		out.printChild("update", update);
-		out.printChild("forBody", forBody);
+		out.printChild("body", body);
 
 		out.endObject();
 	}
@@ -106,12 +106,13 @@ namespace neo
 		out.endObject();
 	}
 
-	void CatchStmt::debugPrint(NDebugOutput &out)
+	void CatchClause::debugPrint(NDebugOutput &out)
 	{
-		ASTStmt::debugPrint(out);
-		out.beginObject("CatchStmt");
+		ASTNode::debugPrint(out);
+		out.beginObject("CatchClause");
 
-		out.printChild("errorType", errorType);
+		out.printItem("varName", varName);
+        out.printChild("errorType", errorType);
 		out.printChild("handlerBody", handlerBody);
 
 		out.endObject();
@@ -124,6 +125,7 @@ namespace neo
 
 		out.printChild("body", body);
 		out.printChildren("handlers", handlers);
+		out.printChild("finallyBody", finallyBody);
 
 		out.endObject();
 	}
@@ -153,7 +155,7 @@ namespace neo
 		ASTStmt::debugPrint(out);
 		out.beginObject("DeclStmt");
 
-		out.printChild("type", declType);
+		out.printChild("decl", decl);
 
 		out.endObject();
 	}
@@ -161,6 +163,25 @@ namespace neo
 	void ExprStmt::debugPrint(NDebugOutput &out)
 	{
 		ASTStmt::debugPrint(out);
-		expr->debugPrint(out);
+		out.beginObject("ExprStmt");
+		out.printChild("expr", expr);
+		out.endObject();
 	}
+
+	void ErrorStmt::debugPrint(NDebugOutput &out)
+	{
+		ASTStmt::debugPrint(out);
+		out.beginObject("ErrorStmt");
+		out.endObject();
+	}
+
+    void InitialStmt::debugPrint(NDebugOutput &out)
+    {
+		ASTNode::debugPrint(out);
+		out.beginObject("InitialStmt");
+
+		out.printChildren("initializers", initialStmts);
+
+		out.endObject();
+    }
 }

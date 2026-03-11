@@ -1,0 +1,11 @@
+fun missingSemicolonInBlock() {
+    Console.println("hello")
+    var a : i32 = 10
+    a += 1
+}
+
+class MissingSemicolonInMethod {
+    fun test() {
+        Console.println("world")
+    }
+}

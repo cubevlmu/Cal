@@ -23,12 +23,13 @@ namespace neo
     enum ASTType
     {
         kUnknown,
-        kStatment,
+        kStatement,
         kDeclaration,
         kType,
         kTypeArray,
         kTypePointer,
-        kUnused1
+        kExpression,
+        kInitializer
     };
     StringView getTypeString(ASTType);
 
@@ -127,6 +128,7 @@ namespace neo
     enum class StmtKind
     {
         kUnknown,
+        kError,
         kExpression,
         kCompound,
         kIf,
@@ -141,7 +143,8 @@ namespace neo
         kExpr,
         kTry,
         kCatch,
-        kThrow
+        kThrow,
+        kInitial
     };
     StringView getTypeString(StmtKind);
     class ASTStmt *createStmt(StmtKind);
@@ -150,7 +153,7 @@ namespace neo
     {
     public:
         explicit ASTStmt(StmtKind kind)
-            : ASTNode(ASTType::kStatment), m_kind{kind}
+            : ASTNode(ASTType::kStatement), m_kind{kind}
         {
         }
         ~ASTStmt() override = default;
@@ -172,6 +175,7 @@ namespace neo
     enum class ExprKind
     {
         kUnknown,
+        kError,
         kNumberLit,
         kBoolLit,
         kBinary,
@@ -197,11 +201,11 @@ namespace neo
     StringView getTypeString(ExprKind);
     class ASTExpr *createExpr(ExprKind);
 
-    class ASTExpr : public ASTStmt
+    class ASTExpr : public ASTNode
     {
     public:
         explicit ASTExpr(ExprKind kind)
-            : ASTStmt(StmtKind::kExpression), m_kind{kind}
+            : ASTNode(ASTType::kExpression), m_kind{kind}
         {
         }
         ~ASTExpr() override = default;
@@ -237,6 +241,9 @@ namespace neo
     enum class DeclKind
     {
         kUnknown,
+        kError,
+        kGenericParam,
+        kImport,
         kVar,
         kFunc,
         kClass,
@@ -259,9 +266,12 @@ namespace neo
         bool isProtected : 1 = false;
         bool isInternal : 1 = false;
         bool isInline : 1 = false;
+        bool isVirtual : 1 = false;
+        bool isOverride : 1 = false;
+        bool isImpl : 1 = false;
 
         ASTModifier() noexcept;
-        ASTModifier(bool s, bool f, bool c, bool priv, bool prot, bool inter, bool inl) noexcept;
+        ASTModifier(bool s, bool f, bool c, bool priv, bool prot, bool inter, bool inl, bool vt, bool over, bool impl) noexcept;
 
         ASTModifier(const ASTModifier &other) noexcept;
         ASTModifier &operator=(const ASTModifier &other) noexcept;
@@ -294,7 +304,7 @@ namespace neo
         virtual void debugPrint(NDebugOutput &out) override;
 
     public:
-        bool isMarkedExport;
+        bool isMarkedExport = false;
         Vector<Attribute *> attributes;
 
         ASTModifier modifier;

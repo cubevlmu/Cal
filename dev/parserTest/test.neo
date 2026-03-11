@@ -116,15 +116,15 @@ enum EnumTest2 : u8 {
 }
 
 class OOPTestBase {
-    ctor(val : i32) {}
+    ctor(vv : i32) {}
 
     virtual fun virtualFunc1() {}
     virtual fun virtualFunc2();
 }
 
 final class OOPTest : OOPTestBase, InterfaceTest {
-    ctor(val : i32) 
-        : OOPTestBase(val) 
+    ctor(vv : i32) 
+        : OOPTestBase(vv) 
     {
     }
 
@@ -132,10 +132,10 @@ final class OOPTest : OOPTestBase, InterfaceTest {
 
     }
 
-    impl fun interfaceItem1() : i32 {
+    impl fun interfaceItem1() i32 {
         return 10;
     }
-    impl fun interfaceItem2(args : i32) : i32 {
+    impl fun interfaceItem2(args : i32) i32 {
         return 10;
     }
 
@@ -144,17 +144,16 @@ final class OOPTest : OOPTestBase, InterfaceTest {
     }
 }
 
-[Attribute("TestAttribute")]
-const fun attributeDef(default : const string) {
-
-}
-
 inline fun testInline() {}
 export fun testExport() {}
 
 var globalVarTest : i32;
 val globalValTest : i32 = 10;
 
+// Not impl
+fun testTemplate<T>(T t) {
+    t.print();
+}
 
 fun tryCatchTest() {
     try {
@@ -165,9 +164,11 @@ fun tryCatchTest() {
     }
 }
 
-/* fun testTemplate<T>(T t) {
-    t.print();
+[Attribute("TestAttribute")]
+const fun attributeDef(dd : const string) {
+
 }
+
 fun testTemplate2<T : OOPTestBase>(T t) {
     t.print();
 }
@@ -176,4 +177,3 @@ fun testT2() {
     val obj = new OOPTest();
     testTemplate(obj);
 }
-*/

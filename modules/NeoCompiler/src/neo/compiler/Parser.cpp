@@ -18,6 +18,7 @@
 
 #include <nbase/types/String.hpp>
 #include <nbase/utils/StringUtils.hpp>
+#include <cctype>
 #include <vector>
 
 // HINT: all statement parser should advence at last token
@@ -25,8 +26,10 @@
 
 // TODO add end line check
 
+#if NE_COMPILER_CLANG
 #pragma clang diagnostic push
 #pragma ide diagnostic ignored "OCDFAInspection"
+#endif
 
 namespace neo
 {
@@ -39,6 +42,10 @@ namespace neo
         TokenType::kInternal,
         TokenType::kProtected,
         TokenType::kPrivate,
+        TokenType::kFinal,
+        TokenType::kVirtual,
+        TokenType::kOverride,
+        TokenType::kImpl,
     };
 
 #define CHECK_MODIFIER(ITEM, ITEM_NAME)                            \
@@ -111,17 +118,95 @@ namespace neo
 
     Result NParser::unexpectedToken(const String &context)
     {
-        return Result::failure("unexpected token " + tokenText(current()) + " while parsing " + context, ERRR());
+        return Result::failure("unexpected token " + tokenText(current()) + " in " + context, ERRR());
     }
 
     Result NParser::expectedToken(const String &expected, const String &context)
     {
-        return Result::failure("expected " + expected + " while parsing " + context + ", but found " + tokenText(current()), ERRR());
+        return Result::failure("expected " + expected + " in " + context + ", found " + tokenText(current()), ERRR());
+    }
+
+    void NParser::synchronize(std::initializer_list<TokenType> tokens, bool consumeToken)
+    {
+        while (!check(TokenType::kEOF))
+        {
+            for (auto t : tokens)
+            {
+                if (check(t))
+                {
+                    if (consumeToken)
+                    {
+                        advance();
+                    }
+                    return;
+                }
+            }
+            advance();
+        }
+    }
+
+    void NParser::synchronizeTopLevel()
+    {
+        synchronize({TokenType::kImport, TokenType::kModule, TokenType::kFun, TokenType::kClass, TokenType::kStruct,
+                     TokenType::kInterface, TokenType::kEnum, TokenType::kVar, TokenType::kVal, TokenType::kConst,
+                     TokenType::kExport, TokenType::kLBracket, TokenType::kEOF});
+    }
+
+    void NParser::synchronizeStmt()
+    {
+        while (!check(TokenType::kEOF))
+        {
+            if (check(TokenType::kSemicolon))
+            {
+                advance();
+                return;
+            }
+            if (check(TokenType::kRBraces))
+            {
+                return;
+            }
+            advance();
+        }
+    }
+
+    void NParser::synchronizeExpr()
+    {
+        synchronize({TokenType::kComma, TokenType::kRParen, TokenType::kRBracket, TokenType::kSemicolon, TokenType::kRBraces});
+    }
+
+    bool NParser::shouldAbort() const
+    {
+        return m_diag.getErrorCount() >= s_maxRecoverErrors;
+    }
+
+    ASTExpr *NParser::makeErrorExpr(const NToken &start)
+    {
+        return setLoc(new ErrorExpr(), start);
+    }
+
+    ASTStmt *NParser::makeErrorStmt(const NToken &start)
+    {
+        return setLoc(new ErrorStmt(), start);
+    }
+
+    ASTDecl *NParser::makeErrorDecl(const NToken &start)
+    {
+        return setLoc(new ErrorDecl(), start);
     }
 
     bool NParser::isTypeAt(psize idx, psize *endIdx) const
     {
         const auto &tokens = m_lexer->m_tokens;
+        if (idx >= tokens.size())
+        {
+            return false;
+        }
+
+        if (tokens[idx].type == TokenType::kConst)
+        {
+            idx++;
+        }
+
         if (idx >= tokens.size() || tokens[idx].type != TokenType::kIdentifier)
         {
             return false;
@@ -238,8 +323,18 @@ namespace neo
         {
             if (check(TokenType::kImport))
             {
+                const auto start = current();
                 auto p_import_Ret = parseImport();
-                CHECK_ERROR(p_import_Ret);
+                if (!p_import_Ret)
+                {
+                    synchronizeTopLevel();
+                    output.Nodes.push_back(makeErrorDecl(start));
+                    if (shouldAbort())
+                    {
+                        return p_import_Ret.result();
+                    }
+                    continue;
+                }
                 output.Nodes.push_back(p_import_Ret.value());
             }
             else if (check(TokenType::kEOF))
@@ -249,11 +344,36 @@ namespace neo
             }
             else
             {
+                const auto start = current();
                 auto r = parseDecl();
-                CHECK_ERROR(r);
+                if (!r)
+                {
+                    synchronizeTopLevel();
+                    if (current() == start && !check(TokenType::kEOF))
+                    {
+                        advance();
+                    }
+                    output.Nodes.push_back(makeErrorDecl(start));
+                    if (shouldAbort())
+                    {
+                        return r.result();
+                    }
+                    continue;
+                }
                 if (r.value() == nullptr)
                 {
-                    return unexpectedToken("top-level declaration");
+                    m_diag.error(start.location(m_args.file), "unexpected token " + tokenText(start) + " in top-level declaration");
+                    synchronizeTopLevel();
+                    if (current() == start && !check(TokenType::kEOF))
+                    {
+                        advance();
+                    }
+                    output.Nodes.push_back(makeErrorDecl(start));
+                    if (shouldAbort())
+                    {
+                        return Result::failure("too many errors, aborting parse");
+                    }
+                    continue;
                 }
                 output.Nodes.push_back(r.value());
             }
@@ -265,14 +385,14 @@ namespace neo
     // import statement parser
     // suppoting module string lit like "aaa.bbb.ccc"
     // TESTED
-    Expected<ImportStmt *> NParser::parseImport()
+    Expected<ImportDecl *> NParser::parseImport()
     {
         auto start = current();
         if (!check(TokenType::kImport))
         {
             return unexpectedToken("import declaration");
         }
-        neo::NString moduleName{};
+        String moduleName{};
 
         // parse import string lit, module names concat with dot
         do
@@ -297,7 +417,7 @@ namespace neo
             }
         } while (true);
 
-        return setLoc(neo::newObject<ImportStmt>(moduleName), start);
+        return setLoc(neo::newObject<ImportDecl>(moduleName), start);
     }
 
     // module declare parser
@@ -336,35 +456,18 @@ namespace neo
             }
         } while (true);
         auto gd = ScopeGuard(new ModuleDecl(module));
-        auto children = ScopeGuard(new TopLevelDecls());
 
         if (check(TokenType::kSemicolon))
         {
-            // top level module decl
-            // trigger decl parsing logic and make those decls as module's children
+            // top level module declaration with no body
             advance(); // Skip ';'
-
-            do
-            {
-                if (check(TokenType::kEOF))
-                {
-                    advance(); // Skip 'EOF' ///???????
-                    break;
-                }
-                else
-                {
-                    auto r = parseDecl();
-                    CHECK_ERROR(r);
-                    children->decls.push_back(r.value());
-                }
-            } while (true);
-
-            gd->children = children.getPtr();
         }
         else if (check(TokenType::kLBraces))
         {
             // scope-based module decl
             // trigger scope decl parsing logic and make those decls as module's children
+            auto children = ScopeGuard(new TopLevelDecls());
+            setLoc(children.getPtr(), current());
             advance(); // eat '{'
 
             do
@@ -398,25 +501,39 @@ namespace neo
     Expected<FuncDecl *> NParser::parseFunc(bool isLambda)
     {
         const auto start = current();
-        if (!check(TokenType::kFun))
+        const bool isCtor = check(TokenType::kCtor);
+        const bool isDtor = check(TokenType::kDtor);
+        
+        if (!check(TokenType::kFun) && !isCtor && !isDtor)
         {
             return unexpectedToken("function declaration");
         }
-        if (!isLambda && !expect(TokenType::kIdentifier))
+        if (!isLambda && !isCtor && !isDtor && !expect(TokenType::kIdentifier))
         {
             return expectedToken("a function name", "function declaration");
         }
-        advance();
         String name{};
+        advance(); // Skip name label
+
+        InitialStmt *initStmt = nullptr;
+        Vector<GenericParamDecl *> genericParams;
 
         if (!isLambda)
         {
-            // function name parsing logic
-            name = current().value;
-            advance(); // Skip name
+            if (isCtor || isDtor)
+            {
+                name = start.value;
+            }
+            else
+            {
+                // function name parsing logic
+                name = current().value;
+                advance(); // Skip name
 
-            auto rGeneric = parseGenericSuffix(name);
-            CHECK_ERROR(rGeneric);
+                String genericSuffix{};
+                auto rGeneric = parseGenericSuffix(genericSuffix, &genericParams);
+                CHECK_ERROR(rGeneric);
+            }
         }
 
         if (!check(TokenType::kLParen))
@@ -425,7 +542,17 @@ namespace neo
         }
 
         // function argument parsing
+        auto oldGenericTypeNames = std::move(m_activeGenericTypeNames);
+        m_activeGenericTypeNames = Vector<String>{};
+        for (auto *param : genericParams)
+        {
+            if (param != nullptr)
+            {
+                m_activeGenericTypeNames.push_back(param->name);
+            }
+        }
         auto args = parseFuncArgs();
+        m_activeGenericTypeNames = std::move(oldGenericTypeNames);
         CHECK_ERROR(args);
         for (auto *arg : args.value())
         {
@@ -435,40 +562,203 @@ namespace neo
             }
         }
 
-        // function return type parsing
         ASTTypeNode *returnType = nullptr;
-        if (check(TokenType::kIdentifier))
-        {
-            auto t = parseType();
-            CHECK_ERROR(t);
-            returnType = t.value();
-        }
 
+        parseMain:
         // check scope-based decl or interface-based decl
         if (check(TokenType::kSemicolon))
         {
             // end with ';' just return
             advance();
-            return setLoc(new FuncDecl(name, returnType, args.value(), nullptr), start);
+            if (!isCtor && !isDtor && returnType == nullptr)
+            {
+                returnType = setLoc(new ASTTypeNode("void"), start);
+            }
+            return setLoc(new FuncDecl(name, std::move(genericParams), returnType, args.value(), initStmt, nullptr), start);
         }
-        else if (check(TokenType::kLBraces))
+        if ((isCtor || isDtor) && check(TokenType::kColon)) 
+        {
+            // parse initial statements.
+            if (!isCtor && !isDtor) {
+                return unexpectedToken("initial statement can't use on general functions");
+            }
+            advance(); // Skip ':'
+            initStmt = setLoc(new InitialStmt(), current());
+
+            do {
+                if (check(TokenType::kComma)) {
+                    advance();
+                    continue;
+                } else if (check(TokenType::kIdentifier)) {
+                    auto label = current();
+                    advance(); // Skip variable label
+                    if (!check(TokenType::kLParen)) {
+                        return expectedToken("'('", "initial statement value expression.");
+                        break;
+                    }
+                    auto args = parseFuncCallArgs();
+                    CHECK_ERROR(args);
+                    auto* callee = setLoc(new ASTIdent(label.value), label);
+                    auto* oExpr = setLoc(new CallExpr(callee, args.value()), label);
+                    initStmt->initialStmts.push_back(oExpr);
+                } else if (check(TokenType::kLBraces) || check(TokenType::kSemicolon)) {
+                    break;
+                } else {
+                    return unexpectedToken("initial statements");
+                }
+            } while(true);
+            goto parseMain; // Recheck again and try parse main body.
+        }
+        // function return type parsing (non-ctor/dtor)
+        if (!isCtor && !isDtor)
+        {
+            if (check(TokenType::kColon))
+            {
+                advance(); // Skip ':'
+                auto t = parseType();
+                CHECK_ERROR(t);
+                if (t.value() == nullptr)
+                {
+                    return expectedToken("a return type", "function declaration");
+                }
+                returnType = t.value();
+            }
+            else if (check(TokenType::kIdentifier))
+            {
+                auto t = parseType();
+                CHECK_ERROR(t);
+                returnType = t.value();
+            }
+        }
+        if (check(TokenType::kLBraces))
         {
             // end with '{'
 
             auto r = parseScope();
             CHECK_ERROR(r);
-            return setLoc(new FuncDecl(name, returnType, args.value(), r.value()), start);
+            if (!isCtor && !isDtor && returnType == nullptr)
+            {
+                returnType = setLoc(new ASTTypeNode("void"), start);
+            }
+            return setLoc(new FuncDecl(name, std::move(genericParams), returnType, args.value(), initStmt, r.value()), start);
         }
         else
         {
             return expectedToken("';' or '{'", "function declaration");
         }
+
+        return Result::failure("internal parser error while finishing function declaration", ERRR());
     }
 
-    Expected<void> NParser::parseGenericSuffix(String &out)
+    Expected<void> NParser::parseGenericSuffix(String &out, Vector<GenericParamDecl *> *params)
     {
         if (!check(TokenType::kLt))
         {
+            return Result::success();
+        }
+
+        if (params != nullptr)
+        {
+            const auto genericStart = current();
+            bool terminated = false;
+            advance(); // Skip '<'
+
+            do
+            {
+                if (check(TokenType::kGt))
+                {
+                    advance(); // Skip '>'
+                    terminated = true;
+                    break;
+                }
+
+                if (!check(TokenType::kIdentifier))
+                {
+                    m_diag.error(current().location(m_args.file), "expected generic parameter name");
+                    while (!check(TokenType::kEOF) && !check(TokenType::kComma) && !check(TokenType::kGt))
+                    {
+                        advance();
+                    }
+                    if (check(TokenType::kComma))
+                    {
+                        advance();
+                        continue;
+                    }
+                    if (check(TokenType::kGt))
+                    {
+                        advance();
+                        terminated = true;
+                        break;
+                    }
+                    break;
+                }
+
+                const auto paramStart = current();
+                ASTTypeNode *constraint = nullptr;
+                String name = current().value;
+                advance(); // Skip parameter name
+
+                if (check(TokenType::kColon))
+                {
+                    advance(); // Skip ':'
+                    auto rConstraint = parseType();
+                    if (!rConstraint)
+                    {
+                        while (!check(TokenType::kEOF) && !check(TokenType::kComma) && !check(TokenType::kGt))
+                        {
+                            advance();
+                        }
+                        m_diag.error(current().location(m_args.file), "expected generic constraint type");
+                    }
+                    else if (rConstraint.value() == nullptr)
+                    {
+                        m_diag.error(current().location(m_args.file), "expected generic constraint type");
+                    }
+                    else
+                    {
+                        constraint = rConstraint.value();
+                    }
+                }
+
+                auto *param = setLoc(neo::newObject<GenericParamDecl>(name, constraint), paramStart);
+                params->push_back(param);
+
+                if (check(TokenType::kComma))
+                {
+                    advance(); // Skip ','
+                    continue;
+                }
+                if (check(TokenType::kGt))
+                {
+                    advance(); // Skip '>'
+                    terminated = true;
+                    break;
+                }
+
+                m_diag.error(current().location(m_args.file), "expected ',' or '>' in generic parameter list");
+                while (!check(TokenType::kEOF) && !check(TokenType::kComma) && !check(TokenType::kGt))
+                {
+                    advance();
+                }
+                if (check(TokenType::kComma))
+                {
+                    advance();
+                    continue;
+                }
+                if (check(TokenType::kGt))
+                {
+                    advance();
+                    terminated = true;
+                    break;
+                }
+                break;
+            } while (!check(TokenType::kEOF));
+
+            if (!terminated)
+            {
+                return Result::failure("unterminated generic parameter list", &m_diag, genericStart, m_args.file);
+            }
+
             return Result::success();
         }
 
@@ -505,6 +795,59 @@ namespace neo
             return Result::failure("unterminated generic parameter list", &m_diag, start, m_args.file);
         }
 
+        if (params)
+        {
+            // Re-parse the collected suffix for generic params: <T, U: Base>
+            // We can read from 'out' to fill params without changing token stream.
+            // For now, keep it minimal: only names and optional single-type constraint.
+            StringView view{out};
+            psize idx = 0;
+            while (idx < view.size())
+            {
+                if (view[idx] == '<' || view[idx] == '>' || view[idx] == ',' || view[idx] == ' ')
+                {
+                    idx++;
+                    continue;
+                }
+                // read name
+                psize startIdx = idx;
+                while (idx < view.size() && (std::isalnum(static_cast<unsigned char>(view[idx])) || view[idx] == '_'))
+                {
+                    idx++;
+                }
+                String name{view.data() + startIdx, idx - startIdx};
+                ASTTypeNode *constraint = nullptr;
+
+                // skip spaces
+                while (idx < view.size() && view[idx] == ' ')
+                {
+                    idx++;
+                }
+                if (idx < view.size() && view[idx] == ':')
+                {
+                    idx++;
+                    while (idx < view.size() && view[idx] == ' ')
+                    {
+                        idx++;
+                    }
+                    psize cStart = idx;
+                    while (idx < view.size() && (std::isalnum(static_cast<unsigned char>(view[idx])) || view[idx] == '_' || view[idx] == '.' || view[idx] == ':'))
+                    {
+                        idx++;
+                    }
+                    String cName{view.data() + cStart, idx - cStart};
+                    if (!cName.empty())
+                    {
+                        constraint = neo::newObject<ASTTypeNode>(cName);
+                    }
+                }
+                if (!name.empty())
+                {
+                    params->push_back(neo::newObject<GenericParamDecl>(name, constraint));
+                }
+            }
+        }
+
         return Result::success();
     }
 
@@ -514,13 +857,28 @@ namespace neo
     Expected<ASTTypeNode *> NParser::parseType()
     {
         const auto start = current();
+        bool isConst = false;
+        if (check(TokenType::kConst) || (check(TokenType::kIdentifier) && current().value == "const"))
+        {
+            isConst = true;
+            advance();
+        }
+
         if (!check(TokenType::kIdentifier))
         {
+            if (isConst)
+            {
+                return expectedToken("type identifier", "type");
+            }
             return nullptr;
         }
 
         // get full type string including module and type
         String typeStr;
+        if (isConst)
+        {
+            typeStr.append("const ");
+        }
         typeStr.append(current().value);
         advance();
 
@@ -539,7 +897,7 @@ namespace neo
             advance();
         }
 
-        auto rGeneric = parseGenericSuffix(typeStr);
+        auto rGeneric = parseGenericSuffix(typeStr, nullptr);
         CHECK_ERROR(rGeneric);
 
         bool hasPointer = false;
@@ -578,7 +936,7 @@ namespace neo
                     }
                     else
                     {
-                        return Result::failure("Unexpected token found in array type brackets -> ]' or not closed.", ERRR());
+                        return Result::failure("expected ']' to close array type", ERRR());
                     }
                 } while (true);
             } while (check(TokenType::kLBracket));
@@ -608,12 +966,28 @@ namespace neo
 
         do
         {
-            if (std::find(&s_modifier[0], &s_modifier[7], current().type) == &s_modifier[7])
+            TokenType curType = current().type;
+            if (curType == TokenType::kIdentifier)
+            {
+                const auto &val = current().value;
+                if (val == "private") curType = TokenType::kPrivate;
+                else if (val == "protected") curType = TokenType::kProtected;
+                else if (val == "internal") curType = TokenType::kInternal;
+                else if (val == "inline") curType = TokenType::kInline;
+                else if (val == "static") curType = TokenType::kStatic;
+                else if (val == "const") curType = TokenType::kConst;
+                else if (val == "virtual") curType = TokenType::kVirtual;
+                else if (val == "override") curType = TokenType::kOverride;
+                else if (val == "impl") curType = TokenType::kImpl;
+                else if (val == "final") curType = TokenType::kFinal;
+            }
+
+            if (std::find(std::begin(s_modifier), std::end(s_modifier), curType) == std::end(s_modifier))
             {
                 break;
             }
 
-            switch (current().type)
+            switch (curType)
             {
             case TokenType::kPrivate:
                 CHECK_MODIFIER(mf.isPrivate, "private")
@@ -638,6 +1012,22 @@ namespace neo
             case TokenType::kConst:
                 CHECK_MODIFIER(mf.isConst, "const")
                 mf.isConst = true;
+                break;
+            case TokenType::kVirtual:
+                CHECK_MODIFIER(mf.isVirtual, "virtual");
+                mf.isVirtual = true;
+                break;
+            case TokenType::kOverride:
+                CHECK_MODIFIER(mf.isOverride, "override");
+                mf.isOverride = true;
+                break;
+            case TokenType::kFinal:
+                CHECK_MODIFIER(mf.isFinal, "final");
+                mf.isFinal = true;
+                break;
+            case TokenType::kImpl:
+                CHECK_MODIFIER(mf.isImpl, "impl");
+                mf.isImpl = true;
                 break;
             default:
                 break;
@@ -691,37 +1081,128 @@ namespace neo
 
         Vector<VarDecl *> args{};
         Vector<Attribute *> attrs{};
+        auto isActiveGenericTypeName = [&](const String &name) -> bool
+        {
+            for (const auto &genericName : m_activeGenericTypeNames)
+            {
+                if (genericName == name)
+                {
+                    return true;
+                }
+            }
+            return false;
+        };
+        enum class ParamSyncResult
+        {
+            kComma,
+            kRParen,
+            kRBrace,
+            kEOF
+        };
+        auto syncParam = [&]() -> ParamSyncResult {
+            while (!check(TokenType::kEOF))
+            {
+                if (check(TokenType::kComma))
+                {
+                    advance();
+                    return ParamSyncResult::kComma;
+                }
+                if (check(TokenType::kRParen))
+                {
+                    advance();
+                    return ParamSyncResult::kRParen;
+                }
+                if (check(TokenType::kRBraces))
+                {
+                    return ParamSyncResult::kRBrace;
+                }
+                advance();
+            }
+            return ParamSyncResult::kEOF;
+        };
 
         if (!check(TokenType::kLParen))
             return args;
         advance(); // Skip '('
         do
         {
+            if (check(TokenType::kEOF))
+            {
+                m_diag.hint(previous().location(m_args.file), "insert ')' to finish the parameter list");
+                return Result::failure("expected ')' to close function parameter list", ERRR());
+            }
+            if (check(TokenType::kRBraces))
+            {
+                m_diag.hint(previous().location(m_args.file), "insert ')' before the block starts");
+                return Result::failure("expected ')' to close function parameter list", ERRR());
+            }
+            if (check(TokenType::kRParen))
+            {
+                advance();
+                break;
+            }
             if (check(TokenType::kLBracket))
             {
                 // parse attributes
 
                 auto att = parseAttributes();
-                CHECK_ERROR(att);
+                if (!att)
+                {
+                    auto sr = syncParam();
+                    attrs = Vector<Attribute *>{};
+                    if (sr != ParamSyncResult::kComma)
+                    {
+                        break;
+                    }
+                    continue;
+                }
                 attrs = att.value();
             }
-            if (check(TokenType::kIdentifier) && expect(TokenType::kColon))
+            auto r = parseModifier();
+            CHECK_ERROR(r);
+            auto md = r.value();
+
+            if ((check(TokenType::kIdentifier) || check(TokenType::kVal) || check(TokenType::kVar)) && expect(TokenType::kColon))
             {
                 const auto argStart = current();
-                auto r = parseModifier();
-                CHECK_ERROR(r);
-                auto md = r.value();
 
-                String &arg_name = current().value;
+                String arg_name = current().value;
                 advance();
-                if (!expect(TokenType::kIdentifier))
+                if (!check(TokenType::kColon))
                 {
-                    advance();
-                    return Result::failure(msg("expect type identifier for function argument, but receive '", current().value, "'"), ERRR());
+                    m_diag.error(current().location(m_args.file), "expected ':' after function parameter name");
+                    auto sr = syncParam();
+                    attrs = Vector<Attribute *>{};
+                    if (sr != ParamSyncResult::kComma)
+                    {
+                        break;
+                    }
+                    continue;
                 }
-                advance();
+                advance(); // Skip ':'
+
                 auto t = parseType();
-                CHECK_ERROR(t);
+                if (!t)
+                {
+                    auto sr = syncParam();
+                    attrs = Vector<Attribute *>{};
+                    if (sr != ParamSyncResult::kComma)
+                    {
+                        break;
+                    }
+                    continue;
+                }
+                if (t.value() == nullptr)
+                {
+                    m_diag.error(current().location(m_args.file), "expected parameter type");
+                    auto sr = syncParam();
+                    attrs = Vector<Attribute *>{};
+                    if (sr != ParamSyncResult::kComma)
+                    {
+                        break;
+                    }
+                    continue;
+                }
 
                 if (check(TokenType::kAssign))
                 {
@@ -755,8 +1236,68 @@ namespace neo
                 }
                 else
                 {
-                    return Result::failure("unexpected expression after function argument declareation \"xxx : xxx [xxx] -> ...\"", ERRR());
+                    m_diag.error(current().location(m_args.file), "unexpected token after function parameter declaration");
+                    auto sr = syncParam();
+                    attrs = Vector<Attribute *>{};
+                    if (sr != ParamSyncResult::kComma)
+                    {
+                        break;
+                    }
+                    continue;
                 }
+            }
+            else if (check(TokenType::kIdentifier) && isActiveGenericTypeName(current().value) && peek().type == TokenType::kIdentifier)
+            {
+                const auto argStart = current();
+                auto rType = parseType();
+                if (!rType)
+                {
+                    auto sr = syncParam();
+                    attrs = Vector<Attribute *>{};
+                    if (sr != ParamSyncResult::kComma)
+                    {
+                        break;
+                    }
+                    continue;
+                }
+
+                String arg_name = current().value;
+                advance();
+
+                if (check(TokenType::kAssign))
+                {
+                    advance();
+                    auto epr = parseExpr();
+                    CHECK_ERROR(epr);
+                    args.push_back(new VarDecl(arg_name, rType.value(), epr.value()));
+                }
+                else
+                {
+                    args.push_back(new VarDecl(arg_name, rType.value()));
+                }
+                args.back()->m_loc = argStart.location(m_args.file);
+                args.back()->attributes = std::move(attrs);
+                args.back()->modifier = std::move(md);
+                attrs = Vector<Attribute *>{};
+
+                if (check(TokenType::kRParen))
+                {
+                    advance();
+                    break;
+                }
+                if (!check(TokenType::kComma))
+                {
+                    m_diag.error(current().location(m_args.file), "expected ',' or ')' in function argument list");
+                    auto sr = syncParam();
+                    attrs = Vector<Attribute *>{};
+                    if (sr != ParamSyncResult::kComma)
+                    {
+                        break;
+                    }
+                    continue;
+                }
+                advance();
+                continue;
             }
             else if (check(TokenType::kComma))
             {
@@ -772,6 +1313,17 @@ namespace neo
                 advance(); // Skip ')'
                 break;
             }
+            else
+            {
+                m_diag.error(current().location(m_args.file), "unexpected token " + tokenText(current()) + " in function argument list");
+                auto sr = syncParam();
+                attrs = Vector<Attribute *>{};
+                if (sr != ParamSyncResult::kComma)
+                {
+                    break;
+                }
+                continue;
+            }
         } while (true);
 
         return args;
@@ -785,6 +1337,7 @@ namespace neo
         {
             return nullptr;
         }
+        const auto scopeStart = current();
         advance(); // eat '{'
         const auto start = current();
         auto gd = ScopeGuard(new CompoundStmt());
@@ -798,8 +1351,41 @@ namespace neo
             }
             else
             {
+                const auto stmtStart = current();
+                if (stmtStart.type == TokenType::kEOF)
+                {
+                    m_diag.hint(scopeStart.location(m_args.file), "insert '}' to match this opening brace");
+                    return Result::failure("expected '}' to close scope", &m_diag, scopeStart, m_args.file);
+                }
                 auto r = parseStmt();
-                CHECK_ERROR(r);
+                if (!r)
+                {
+                    synchronizeStmt();
+                    if (current() == stmtStart && !check(TokenType::kEOF))
+                    {
+                        advance();
+                    }
+                    gd->statements.push_back(makeErrorStmt(stmtStart));
+                    if (shouldAbort())
+                    {
+                        return r.result();
+                    }
+                    continue;
+                }
+                if (r.value() == nullptr)
+                {
+                    synchronizeStmt();
+                    if (current() == stmtStart && !check(TokenType::kEOF))
+                    {
+                        advance();
+                    }
+                    gd->statements.push_back(makeErrorStmt(stmtStart));
+                    if (shouldAbort())
+                    {
+                        return Result::failure("too many errors, aborting parse");
+                    }
+                    continue;
+                }
                 gd->statements.push_back(r.value());
             }
         } while (true);
@@ -845,7 +1431,8 @@ namespace neo
                 if (!check(TokenType::kRBracket))
                 {
                     CLEARUP(attrs);
-                    return Result::failure(msg("expect ']' to close attribute attach but got '", current().value, "'"), ERRR());
+                    m_diag.hint(g->arguments.empty() ? current().location(m_args.file) : g->arguments.back()->m_loc, "insert ']' after the attribute arguments");
+                    return Result::failure(msg("expected ']' to close attribute, found ", tokenText(current())), ERRR());
                 }
                 advance(); // Skip ']'
                 attrs.push_back(g.getPtr());
@@ -853,7 +1440,7 @@ namespace neo
             else
             {
                 CLEARUP(attrs);
-                return Result::failure(msg("unexpect token '", current().value, "' after attribute attach's name"), ERRR());
+                return Result::failure(msg("unexpected token ", tokenText(current()), " after attribute name"), ERRR());
             }
         } while (check(TokenType::kLBracket));
 
@@ -867,14 +1454,64 @@ namespace neo
         auto md = parseModifier();
         CHECK_ERROR(md);
         Vector<Attribute *> attrs{};
+        auto isRecoverableDeclToken = [&](TokenType t) -> bool {
+            return t == TokenType::kFun || t == TokenType::kClass || t == TokenType::kStruct ||
+                   t == TokenType::kInterface || t == TokenType::kEnum || t == TokenType::kModule ||
+                   t == TokenType::kVar || t == TokenType::kVal || isModifier(t);
+        };
+        auto mergeModifier = [&](ASTModifier &dst, const ASTModifier &src) -> Result {
+            if (src.isStatic && dst.isStatic) return Result::failure("duplicated modifier static", ERRR());
+            if (src.isFinal && dst.isFinal) return Result::failure("duplicated modifier final", ERRR());
+            if (src.isConst && dst.isConst) return Result::failure("duplicated modifier const", ERRR());
+            if (src.isPrivate && dst.isPrivate) return Result::failure("duplicated modifier private", ERRR());
+            if (src.isProtected && dst.isProtected) return Result::failure("duplicated modifier protected", ERRR());
+            if (src.isInternal && dst.isInternal) return Result::failure("duplicated modifier internal", ERRR());
+            if (src.isInline && dst.isInline) return Result::failure("duplicated modifier inline", ERRR());
+            if (src.isVirtual && dst.isVirtual) return Result::failure("duplicated modifier virtual", ERRR());
+            if (src.isOverride && dst.isOverride) return Result::failure("duplicated modifier override", ERRR());
+            if (src.isImpl && dst.isImpl) return Result::failure("duplicated modifier impl", ERRR());
+
+            dst.isStatic |= src.isStatic;
+            dst.isFinal |= src.isFinal;
+            dst.isConst |= src.isConst;
+            dst.isPrivate |= src.isPrivate;
+            dst.isProtected |= src.isProtected;
+            dst.isInternal |= src.isInternal;
+            dst.isInline |= src.isInline;
+            dst.isVirtual |= src.isVirtual;
+            dst.isOverride |= src.isOverride;
+            dst.isImpl |= src.isImpl;
+            return Result::success();
+        };
 
         if (check(TokenType::kLBracket))
         {
             // parse attribute
 
             auto p_attribute_Ret = parseAttributes();
-            CHECK_ERROR(p_attribute_Ret);
+            if (!p_attribute_Ret)
+            {
+                if (!check(TokenType::kEOF) && isRecoverableDeclToken(current().type))
+                {
+                    attrs.clear();
+                }
+                else
+                {
+                    return p_attribute_Ret.result();
+                }
+            }
+            else
+            {
             attrs = p_attribute_Ret.value();
+            }
+        }
+
+        auto md2 = parseModifier();
+        CHECK_ERROR(md2);
+        auto mr = mergeModifier(md.value(), md2.value());
+        if (mr.hasError())
+        {
+            return mr;
         }
         if (check(TokenType::kModule))
         {
@@ -956,6 +1593,7 @@ namespace neo
     // syntax like [xxx(xxx)] xxx class xxx : xxx { ... }
     Expected<ClassDecl *> NParser::parseClass()
     {
+        const auto start = current();
         if (!check(TokenType::kClass))
         {
             return nullptr;
@@ -965,9 +1603,10 @@ namespace neo
         // class name parsing
         if (!check(TokenType::kIdentifier))
         {
-            return Result::failure(msg("expected identifier for class name but got : '", current().typeString(), "'"), ERRR());
+            return Result::failure(msg("expected class name, found ", tokenText(current())), ERRR());
         }
         String name = current().value;
+        advance();
 
         // super classes parsing
         auto gd = ScopeGuard<ClassDecl>(new ClassDecl(name, {}));
@@ -975,6 +1614,46 @@ namespace neo
         // pre-def for body parsing
         Vector<Attribute *> attrs{};
         ASTModifier md{};
+        auto isClassMemberStartToken = [&](TokenType t) -> bool
+        {
+            return t == TokenType::kLBracket || t == TokenType::kFun || t == TokenType::kCtor ||
+                   t == TokenType::kDtor || t == TokenType::kField || t == TokenType::kVar ||
+                   t == TokenType::kVal || t == TokenType::kClass || t == TokenType::kStruct ||
+                   t == TokenType::kInterface || t == TokenType::kEnum || isModifier(t);
+        };
+        auto syncMember = [&]() {
+            i32 braceDepth = 0;
+            while (!check(TokenType::kEOF))
+            {
+                if (check(TokenType::kLBraces))
+                {
+                    braceDepth++;
+                    advance();
+                    continue;
+                }
+                if (check(TokenType::kRBraces))
+                {
+                    if (braceDepth == 0)
+                    {
+                        if (isClassMemberStartToken(peek().type))
+                        {
+                            advance();
+                            continue;
+                        }
+                        return;
+                    }
+                    braceDepth--;
+                    advance();
+                    continue;
+                }
+                if (braceDepth == 0 &&
+                    isClassMemberStartToken(current().type))
+                {
+                    return;
+                }
+                advance();
+            }
+        };
 
         if (check(TokenType::kColon))
         {
@@ -994,7 +1673,7 @@ namespace neo
             }
             else
             {
-                return Result::failure(msg("unexpect token '", current().typeString(), "' for class declare"), ERRR());
+                return Result::failure(msg("unexpected token ", tokenText(current()), " after class declaration"), ERRR());
             }
         }
         else if (check(TokenType::kLBraces))
@@ -1007,16 +1686,15 @@ namespace neo
         }
         else
         {
-            return Result::failure(msg("unexpect token '", current().typeString(), "' for class declare"), ERRR());
+            return Result::failure(msg("unexpected token ", tokenText(current()), " after class declaration"), ERRR());
         }
 
     parseBody:
         // class body parsing
+        advance();
 
         do
         {
-            advance();
-
             if (check(TokenType::kLBracket))
             {
                 // attributes parsing
@@ -1025,7 +1703,7 @@ namespace neo
                 CHECK_ERROR(rq);
                 attrs = rq.value();
             }
-            else if (check(TokenType::kIdentifier))
+            else if (isModifier(current().type))
             {
                 // modifier parsing
 
@@ -1038,48 +1716,124 @@ namespace neo
                 // class constructor / destructor / normal function parsing
 
                 byte type = check(TokenType::kCtor) ? 1 : (check(TokenType::kDtor) ? 2 : 0);
+                const auto memberStart = current();
                 auto r = parseFunc();
-                CHECK_ERROR(r);
-                APPLY_MODIFIER_RAW(r, md);
-                APPLY_ATTRIBUTES(r, attrs);
+                if (!r)
+                {
+                    gd->errorMembers.push_back(makeErrorDecl(memberStart));
+                    syncMember();
+                    attrs = Vector<Attribute *>{};
+                    md = ASTModifier{};
+                    if (check(TokenType::kRBraces))
+                    {
+                        continue;
+                    }
+                    if (current() == memberStart && !check(TokenType::kEOF))
+                    {
+                        advance();
+                    }
+                    continue;
+                }
+                auto *func = r.value();
+                APPLY_MODIFIER_RAW(func, md);
+                md = ASTModifier{};
+                if (func != nullptr)
+                {
+                    func->attributes = std::move(attrs);
+                }
+                attrs = Vector<Attribute *>();
                 if (type == 1)
                 {
-                    gd->ctors.push_back(r.value());
+                    gd->ctors.push_back(func);
                 }
                 else if (type == 2)
                 {
                     if (gd->dtors != nullptr)
-                        return Result::failure("redefined destructor.", ERRR());
-                    gd->dtors = r.value();
+                        return Result::failure("destructor is already declared in this class", ERRR());
+                    gd->dtors = func;
                 }
                 else
                 {
-                    gd->functions.push_back(r.value());
+                    gd->functions.push_back(func);
                 }
             }
             else if (check(TokenType::kField))
             {
                 // class field parsing
 
+                const auto memberStart = current();
                 auto r = parseField();
-                CHECK_ERROR(r);
-                APPLY_MODIFIER_RAW(r, md);
-                APPLY_ATTRIBUTES(r, attrs);
-                gd->fields.push_back(r.value());
+                if (!r)
+                {
+                    gd->errorMembers.push_back(makeErrorDecl(memberStart));
+                    syncMember();
+                    attrs = Vector<Attribute *>{};
+                    md = ASTModifier{};
+                    if (check(TokenType::kRBraces))
+                    {
+                        continue;
+                    }
+                    if (current() == memberStart && !check(TokenType::kEOF))
+                    {
+                        advance();
+                    }
+                    continue;
+                }
+                auto *field = r.value();
+                APPLY_MODIFIER_RAW(field, md);
+                md = ASTModifier{};
+                if (field != nullptr)
+                {
+                    field->attributes = std::move(attrs);
+                }
+                attrs = Vector<Attribute *>();
+                gd->fields.push_back(field);
             }
             else if (check(TokenType::kRBraces))
             {
                 // end scope parsed
 
-                break;
+                advance();
+                return setLoc(gd.getPtr(), start);
             }
             else
             {
+                const auto memberStart = current();
                 auto dr = parseDecl();
-                CHECK_ERROR(dr);
-                APPLY_MODIFIER_RAW(dr, md);
-                APPLY_ATTRIBUTES(dr, attrs);
+                if (!dr)
+                {
+                    gd->errorMembers.push_back(makeErrorDecl(memberStart));
+                    syncMember();
+                    if (check(TokenType::kRBraces))
+                    {
+                        break;
+                    }
+                    if (current() == memberStart && !check(TokenType::kEOF))
+                    {
+                        advance();
+                    }
+                    continue;
+                }
+                if (dr.value() == nullptr)
+                {
+                    m_diag.error(current().location(m_args.file), "unexpected token " + tokenText(current()) + " in class member declaration");
+                    gd->errorMembers.push_back(makeErrorDecl(memberStart));
+                    syncMember();
+                    if (check(TokenType::kRBraces))
+                    {
+                        break;
+                    }
+                    if (current() == memberStart && !check(TokenType::kEOF))
+                    {
+                        advance();
+                    }
+                    continue;
+                }
                 auto *dk = dr.value();
+                APPLY_MODIFIER_RAW(dk, md);
+                md = ASTModifier{};
+                dk->attributes = std::move(attrs);
+                attrs = Vector<Attribute *>();
 
                 // sub-data-types
                 if (auto *dClass = dynamic_cast<ClassDecl *>(dk))
@@ -1105,14 +1859,17 @@ namespace neo
                 }
                 else
                 {
-                    return Result::failure("unexpected type declared in class body", ERRR());
+                    return Result::failure("unexpected declaration kind in class body", ERRR());
                 }
             }
         } while (true);
 
     end:
-        advance();
-        return gd.getPtr();
+        if (check(TokenType::kSemicolon))
+        {
+            advance();
+        }
+        return setLoc(gd.getPtr(), start);
     }
 
     // variable parser
@@ -1129,7 +1886,7 @@ namespace neo
         // parse variable name
         if (!check(TokenType::kIdentifier))
         {
-            return Result::failure("unexpected token found after var/val : var xxx <--", ERRR());
+            return Result::failure(msg("expected variable name, found ", tokenText(current())), ERRR());
         }
         StringView name = current().value;
         advance();
@@ -1162,6 +1919,20 @@ namespace neo
         {
             if (!check(TokenType::kSemicolon))
             {
+                bool stmtBoundary = check(TokenType::kRBraces) || check(TokenType::kEOF) || check(TokenType::kIf) ||
+                                    check(TokenType::kWhile) || check(TokenType::kFor) || check(TokenType::kReturn) ||
+                                    check(TokenType::kContinue) || check(TokenType::kTry) || check(TokenType::kThrow) ||
+                                    check(TokenType::kBreak) || check(TokenType::kVal) || check(TokenType::kVar) ||
+                                    check(TokenType::kFun) || check(TokenType::kClass) || check(TokenType::kStruct) ||
+                                    check(TokenType::kInterface) || check(TokenType::kEnum) || check(TokenType::kModule) ||
+                                    check(TokenType::kIdentifier) || check(TokenType::kIntLit) || check(TokenType::kFloatLit) ||
+                                    check(TokenType::kStringLit) || check(TokenType::kLParen) || check(TokenType::kNew) ||
+                                    isModifier(current().type);
+                if (stmtBoundary)
+                {
+                    m_diag.error(current().location(m_args.file), "expected ';' after variable declaration");
+                    return setLoc(gd.getPtr(), start);
+                }
                 return expectedToken("';'", "variable declaration");
             }
             advance();
@@ -1188,7 +1959,7 @@ namespace neo
 
         if (!check(TokenType::kIdentifier))
         {
-            return Result::failure("typed declaration expects a variable name after type.", ERRR());
+            return Result::failure("expected variable name after type", ERRR());
         }
 
         StringView name = current().value;
@@ -1208,7 +1979,7 @@ namespace neo
         {
             if (!check(TokenType::kSemicolon))
             {
-                return Result::failure("typed declaration should end with ';'.", ERRR());
+                return Result::failure("expected ';' after typed variable declaration", ERRR());
             }
             advance();
         }
@@ -1229,7 +2000,7 @@ namespace neo
 
         if (!check(TokenType::kColon))
         {
-            return Result::failure("expected ':' after loop variable name.", ERRR());
+            return Result::failure("expected ':' after variable name", ERRR());
         }
         advance();
 
@@ -1237,7 +2008,7 @@ namespace neo
         CHECK_ERROR(rType);
         if (rType.value() == nullptr)
         {
-            return Result::failure("expected type after ':' in variable declaration.", ERRR());
+            return Result::failure("expected type after ':' in variable declaration", ERRR());
         }
 
         auto gd = ScopeGuard(new VarDecl(name, rType.value()));
@@ -1254,7 +2025,7 @@ namespace neo
         {
             if (!check(TokenType::kSemicolon))
             {
-                return Result::failure("variable declaration should end with ';'.", ERRR());
+                return Result::failure("expected ';' after variable declaration", ERRR());
             }
             advance();
         }
@@ -1266,6 +2037,7 @@ namespace neo
     // syntax like 'enum XXX : XXX { ... }'
     Expected<EnumDecl *> NParser::parseEnum()
     {
+        const auto start = current();
         if (!check(TokenType::kEnum))
         {
             return nullptr;
@@ -1275,7 +2047,7 @@ namespace neo
         // parse enum name
         if (!check(TokenType::kIdentifier))
         {
-            return Result::failure("unexpected token after enum token : enum xxx <--", ERRR());
+            return Result::failure(msg("expected enum name, found ", tokenText(current())), ERRR());
         }
         StringView name = current().value;
         advance();
@@ -1300,11 +2072,11 @@ namespace neo
                 // head only declare
 
                 advance();
-                return gd.getPtr();
+                return setLoc(gd.getPtr(), start);
             }
             else
             {
-                return Result::failure("unexpected token after enum head declare : enum xxx : xxx ... <--", ERRR());
+                return Result::failure(msg("unexpected token ", tokenText(current()), " after enum base type"), ERRR());
             }
         }
         else if (check(TokenType::kLBraces))
@@ -1312,64 +2084,85 @@ namespace neo
             // parse enum body
 
         parseBody:
-
+            advance(); // Skip '{'
             do
             {
-                advance();
-                if (check(TokenType::kIdentifier))
+                if (check(TokenType::kRBraces))
                 {
-                    StringView itemName = current().value;
-
-                    advance();
-                    if (check(TokenType::kAssign))
-                    {
-                        // parse enum assignment
-
-                        advance();
-                        auto eas = parseExpr();
-                        CHECK_ERROR(eas);
-
-                        // check next
-                        if (check(TokenType::kComma))
-                        {
-                            advance();
-                        }
-                        gd->children.push_back(new VarDecl(itemName, nullptr, eas.value()));
-                    }
-                    else if (check(TokenType::kComma))
-                    {
-                        gd->children.push_back(new VarDecl(itemName, nullptr));
-                        continue;
-                    }
-                    else
-                    {
-                        return Result::failure("Invalied expression in enum body", ERRR());
-                    }
-                }
-                else if (check(TokenType::kRBraces))
-                {
-                    // end scope
-
+                    advance(); // Skip '}'
                     break;
                 }
-                else if (check(TokenType::kComma))
+                if (check(TokenType::kComma))
+                {
+                    advance(); // allow trailing comma
+                    continue;
+                }
+                if (!check(TokenType::kIdentifier))
+                {
+                    m_diag.error(current().location(m_args.file), "invalid declaration in enum body");
+                    synchronize({TokenType::kComma, TokenType::kRBraces});
+                    if (check(TokenType::kComma))
+                    {
+                        advance();
+                        continue;
+                    }
+                    if (check(TokenType::kRBraces))
+                    {
+                        continue;
+                    }
+                    break;
+                }
+
+                const auto itemStart = current();
+                StringView itemName = current().value;
+                advance();
+
+                ASTExpr* initExpr = nullptr;
+                if (check(TokenType::kAssign))
                 {
                     advance();
+                    auto eas = parseExpr();
+                    CHECK_ERROR(eas);
+                    initExpr = eas.value();
                 }
+                gd->children.push_back(setLoc(new VarDecl(itemName, nullptr, initExpr), itemStart));
+
+                if (check(TokenType::kComma))
+                {
+                    advance();
+                    continue;
+                }
+                if (check(TokenType::kRBraces))
+                {
+                    continue;
+                }
+                m_diag.error(current().location(m_args.file), "invalid declaration in enum body");
+                synchronize({TokenType::kComma, TokenType::kRBraces});
+                if (check(TokenType::kComma))
+                {
+                    advance();
+                    continue;
+                }
+                if (check(TokenType::kRBraces))
+                {
+                    continue;
+                }
+                break;
             } while (true);
         }
         else
         {
-            return Result::failure("unexpected token after enum head declare : enum xxx ... <--", ERRR());
+            return Result::failure(msg("unexpected token ", tokenText(current()), " after enum declaration"), ERRR());
         }
 
-        return gd.getPtr();
+        return setLoc(gd.getPtr(), start);
     }
 
     // field parser
     // syntax like 'field xxx : xxx {XXX,XXX} = xxx;'
     Expected<FieldDecl *> NParser::parseField()
     {
+        const auto start = current();
         if (!check(TokenType::kField))
         {
             return nullptr;
@@ -1378,7 +2171,7 @@ namespace neo
 
         if (!check(TokenType::kIdentifier))
         {
-            return Result::failure("unexpected token after field keyword : field xxx <--", ERRR());
+            return Result::failure(msg("expected field name, found ", tokenText(current())), ERRR());
         }
         StringView name = current().value;
         auto gd = ScopeGuard(new FieldDecl(name, nullptr));
@@ -1396,7 +2189,7 @@ namespace neo
             // check body
             if (!check(TokenType::kLBraces))
             {
-                return Result::failure("unexpected token after field's type hint : field xxx : xxx ... <--", ERRR());
+                return Result::failure(msg("expected '{' after field type, found ", tokenText(current())), ERRR());
             }
             goto parseBody;
         }
@@ -1414,7 +2207,7 @@ namespace neo
 
                 if (!check(TokenType::kComma))
                 {
-                    return Result::failure("unexpected token after field's read function : field xxx {XXX ... <--", ERRR());
+                    return Result::failure(msg("expected ',' after field getter name, found ", tokenText(current())), ERRR());
                 }
                 advance();
             }
@@ -1424,7 +2217,7 @@ namespace neo
             }
             else
             {
-                return Result::failure("unexpected token in field's body : field xxx {... <--", ERRR());
+                return Result::failure(msg("unexpected token ", tokenText(current()), " in field accessor list"), ERRR());
             }
 
             // check write function name
@@ -1436,7 +2229,7 @@ namespace neo
 
                 if (!check(TokenType::kRBraces))
                 {
-                    return Result::failure("unexpected token after field's write function : field xxx {XXX,XXX... <--", ERRR());
+                    return Result::failure(msg("expected '}' after field setter name, found ", tokenText(current())), ERRR());
                 }
                 advance();
             }
@@ -1446,7 +2239,7 @@ namespace neo
             }
             else
             {
-                return Result::failure("unexpected token in field's body : field xxx {XXX,... <--", ERRR());
+                return Result::failure(msg("unexpected token ", tokenText(current()), " in field accessor list"), ERRR());
             }
 
             if (check(TokenType::kAssign))
@@ -1468,18 +2261,26 @@ namespace neo
             {
                 advance();
             }
+            else if (check(TokenType::kRBraces) || check(TokenType::kLBracket) || isModifier(current().type) ||
+                     check(TokenType::kFun) || check(TokenType::kCtor) || check(TokenType::kDtor) ||
+                     check(TokenType::kField) || check(TokenType::kClass) || check(TokenType::kStruct) ||
+                     check(TokenType::kInterface) || check(TokenType::kEnum) || check(TokenType::kVar) ||
+                     check(TokenType::kVal))
+            {
+                return setLoc(gd.getPtr(), start);
+            }
             else
             {
             errorBc:
-                return Result::failure("unexpected token after field declare expression : field xxx {XXX,XXX} = XXX... <--", ERRR());
+                return Result::failure(msg("unexpected token ", tokenText(current()), " after field declaration"), ERRR());
             }
         }
         else
         {
-            return Result::failure("unexpected token after field's name : field XXX ... <--", ERRR());
+            return Result::failure(msg("unexpected token ", tokenText(current()), " after field name"), ERRR());
         }
 
-        return gd.getPtr();
+        return setLoc(gd.getPtr(), start);
     }
 
     // Statement parser
@@ -1488,6 +2289,21 @@ namespace neo
     {
         const auto start = current();
         ASTStmt *result = nullptr;
+        auto isStmtRecoveryBoundary = [&]() -> bool
+        {
+            return check(TokenType::kRBraces) || check(TokenType::kEOF) || check(TokenType::kIf) ||
+                   check(TokenType::kWhile) || check(TokenType::kFor) || check(TokenType::kReturn) ||
+                   check(TokenType::kContinue) || check(TokenType::kTry) || check(TokenType::kThrow) ||
+                   check(TokenType::kBreak) || check(TokenType::kVal) || check(TokenType::kVar) ||
+                   check(TokenType::kFun) || check(TokenType::kClass) || check(TokenType::kStruct) ||
+                   check(TokenType::kInterface) || check(TokenType::kEnum) || check(TokenType::kModule) ||
+                   isModifier(current().type);
+        };
+
+        if (check(TokenType::kRBraces) || check(TokenType::kEOF))
+        {
+            return nullptr;
+        }
 
         switch (current().type)
         {
@@ -1537,7 +2353,7 @@ namespace neo
             advance(); // Skip 'continue'
 
             if (!check(TokenType::kSemicolon))
-                return Result::failure("need ; after continue to close the statement.", ERRR());
+                return Result::failure("expected ';' after continue statement", ERRR());
             advance(); // Skip ';'
 
             result = setLoc(new ContinueStmt(), start);
@@ -1562,7 +2378,16 @@ namespace neo
             auto rTro = parseExpr();
             CHECK_ERROR(rTro);
             if (!check(TokenType::kSemicolon))
-                return Result::failure("throw statement should end with semicolon ';'.", ERRR());
+            {
+                m_diag.error(((check(TokenType::kRBraces) || check(TokenType::kEOF)) ? previous() : current()).location(m_args.file),
+                             "expected ';' after throw statement");
+                if (!check(TokenType::kRBraces) && !check(TokenType::kEOF))
+                {
+                    synchronizeStmt();
+                }
+                result = setLoc(new ThrowStmt(rTro.value()), start);
+                break;
+            }
             advance(); // Skip ';'
             result = setLoc(new ThrowStmt(rTro.value()), start);
 
@@ -1573,7 +2398,7 @@ namespace neo
             // Parse break statement.
             advance(); // Skip 'break'
             if (!check(TokenType::kSemicolon))
-                return Result::failure("need ; after break to close the statement.", ERRR());
+                return Result::failure("expected ';' after break statement", ERRR());
             advance(); // Skip ';'
             result = setLoc(new BreakStmt{}, start);
             break;
@@ -1597,9 +2422,22 @@ namespace neo
 
                 auto rExpr = parseExpr();
                 CHECK_ERROR(rExpr);
+                if (rExpr.value() && rExpr.value()->getExprKind() == ExprKind::kError)
+                {
+                    synchronizeStmt();
+                    result = setLoc(new ErrorStmt(), start);
+                    break;
+                }
                 if (!check(TokenType::kSemicolon))
                 {
-                    return Result::failure("expression line should end with semi-colon ';' ", ERRR());
+                    const NToken &errTok = (check(TokenType::kRBraces) || check(TokenType::kEOF)) ? previous() : current();
+                    m_diag.error(errTok.location(m_args.file), "expected ';' after expression statement");
+                    if (!isStmtRecoveryBoundary())
+                    {
+                        synchronizeStmt();
+                    }
+                    result = setLoc(new ExprStmt(rExpr.value()), start);
+                    break;
                 }
                 advance(); // Skip ';'
                 result = setLoc(new ExprStmt(rExpr.value()), start);
@@ -1619,6 +2457,7 @@ namespace neo
     // Syntax like : [...] interface XXX { ... }
     Expected<InterfaceDecl *> NParser::parseInterface()
     {
+        const auto start = current();
         if (!check(TokenType::kInterface))
         {
             return nullptr;
@@ -1628,7 +2467,7 @@ namespace neo
         // parse interface's name
         if (!check(TokenType::kIdentifier))
         {
-            return Result::failure("unexpected token after interface keyword : interface ... <--", ERRR());
+            return Result::failure(msg("expected interface name, found ", tokenText(current())), ERRR());
         }
         auto gd = ScopeGuard(new InterfaceDecl(current().value));
         advance(); // Skip name
@@ -1640,15 +2479,48 @@ namespace neo
 
             ASTModifier md{};
             Vector<Attribute *> attr{};
+            auto syncInterfaceMember = [&]() {
+                while (!check(TokenType::kEOF))
+                {
+                    if (check(TokenType::kIdentifier) || isModifier(current().type) || check(TokenType::kLBracket))
+                    {
+                        return;
+                    }
+                    if (check(TokenType::kComma) || check(TokenType::kSemicolon))
+                    {
+                        advance();
+                        return;
+                    }
+                    if (check(TokenType::kRBraces))
+                    {
+                        return;
+                    }
+                    advance();
+                }
+            };
 
             do
             {
+                if (check(TokenType::kEOF))
+                {
+                    return Result::failure("expected '}' to close interface body", &m_diag, start, m_args.file);
+                }
+
                 if (check(TokenType::kLBracket))
                 {
                     // Parse Attribute
 
                     auto rA = parseAttributes();
-                    CHECK_ERROR(rA);
+                    if (!rA)
+                    {
+                        syncInterfaceMember();
+                        attr = Vector<Attribute *>{};
+                        if (check(TokenType::kRBraces))
+                        {
+                            continue;
+                        }
+                        continue;
+                    }
                     attr = rA.value();
                 }
                 else if (isModifier(current().type))
@@ -1663,33 +2535,116 @@ namespace neo
                 {
                     // Parse function item
 
+                    const auto fnStart = current();
                     StringView func_name = current().value;
                     advance(); // Skip function's name
 
                     if (!check(TokenType::kLParen))
                     {
-                        return Result::failure("unexpected token after function's name", ERRR());
+                        m_diag.error(current().location(m_args.file), "expected '(' after interface method name");
+                        syncInterfaceMember();
+                        md = ASTModifier{};
+                        attr = Vector<Attribute *>{};
+                        if (check(TokenType::kRBraces))
+                        {
+                            continue;
+                        }
+                        continue;
                     }
                     auto rAgs = parseFuncArgs();
-                    CHECK_ERROR(rAgs);
                     auto fnc = new FuncDecl();
                     fnc->name = func_name;
+                    if (!rAgs)
+                    {
+                        fnc->modifier = std::move(md);
+                        md = ASTModifier{};
+                        fnc->attributes = std::move(attr);
+                        attr = Vector<Attribute *>{};
+                        gd->children.push_back(setLoc(fnc, fnStart));
+                        syncInterfaceMember();
+                        if (check(TokenType::kRBraces))
+                        {
+                            continue;
+                        }
+                        continue;
+                    }
+                    fnc->args = std::move(rAgs.value());
+
+                    if (check(TokenType::kColon))
+                    {
+                        advance(); // Skip ':'
+                        auto rRet = parseType();
+                        if (!rRet)
+                        {
+                            fnc->returnType = setLoc(new ASTTypeNode("<error>"), current());
+                            fnc->modifier = std::move(md);
+                            md = ASTModifier{};
+                            fnc->attributes = std::move(attr);
+                            attr = Vector<Attribute *>{};
+                            gd->children.push_back(setLoc(fnc, fnStart));
+                            syncInterfaceMember();
+                            if (check(TokenType::kRBraces))
+                            {
+                                continue;
+                            }
+                            continue;
+                        }
+                        if (rRet.value() == nullptr)
+                        {
+                            m_diag.error(current().location(m_args.file), "expected a return type in interface method declaration");
+                            fnc->returnType = setLoc(new ASTTypeNode("<error>"), current());
+                            fnc->modifier = std::move(md);
+                            md = ASTModifier{};
+                            fnc->attributes = std::move(attr);
+                            attr = Vector<Attribute *>{};
+                            gd->children.push_back(setLoc(fnc, fnStart));
+                            syncInterfaceMember();
+                            if (check(TokenType::kRBraces))
+                            {
+                                continue;
+                            }
+                            continue;
+                        }
+                        fnc->returnType = rRet.value();
+                    }
+                    else if (isType())
+                    {
+                        m_diag.error(current().location(m_args.file), "expected ':' before interface method return type");
+                        auto rRet = parseType();
+                        if (rRet && rRet.value() != nullptr)
+                        {
+                            fnc->returnType = rRet.value();
+                        }
+                    }
+
                     fnc->modifier = std::move(md);
                     md = ASTModifier{};
                     fnc->attributes = std::move(attr);
                     attr = Vector<Attribute *>{};
 
-                    gd->children.push_back(fnc);
+                    gd->children.push_back(setLoc(fnc, fnStart));
 
-                    if (!check(TokenType::kSemicolon))
+                    if (!check(TokenType::kSemicolon) && !check(TokenType::kComma))
                     {
-                        return Result::failure("function declare was not closed", ERRR());
+                        m_diag.error(current().location(m_args.file), "expected ',' or ';' after interface method declaration");
+                        syncInterfaceMember();
+                        continue;
                     }
-                    advance(); // Skip ';'
+                    advance(); // Skip ',' or ';'
+                }
+                else if (check(TokenType::kRBraces))
+                {
+                    advance(); // Skip '}'
+                    break;
                 }
                 else
                 {
-                    return Result::failure("unexpected identifier in interface body", ERRR());
+                    m_diag.error(current().location(m_args.file), "invalid declaration in interface body");
+                    syncInterfaceMember();
+                    if (check(TokenType::kRBraces))
+                    {
+                        continue;
+                    }
                 }
             } while (true);
         }
@@ -1700,16 +2655,17 @@ namespace neo
         }
         else
         {
-            return Result::failure("unexpected token after interface's name : interface xxx ... <--", ERRR());
+            return Result::failure(msg("unexpected token ", tokenText(current()), " after interface declaration"), ERRR());
         }
 
-        return gd.getPtr();
+        return setLoc(gd.getPtr(), start);
     }
 
     // Struct parser
     // Syntax like : [...] struct XXX { ... }
     Expected<StructDecl *> NParser::parseStruct()
     {
+        const auto start = current();
         if (!check(TokenType::kStruct))
             return nullptr;
         advance(); // Skip 'struct'
@@ -1717,7 +2673,7 @@ namespace neo
         // parse struct's name
         if (!check(TokenType::kIdentifier))
         {
-            return Result::failure("unexpected token after struct keyword : struct ... <--", ERRR());
+            return Result::failure(msg("expected struct name, found ", tokenText(current())), ERRR());
         }
         auto gd = ScopeGuard(new StructDecl(current().value));
         advance(); // Skip name
@@ -1725,7 +2681,7 @@ namespace neo
         if (check(TokenType::kColon))
         {
             // Fallback:
-            return Result::failure("Struct not support with parent classes!", ERRR());
+            return Result::failure("struct declarations do not support base types", ERRR());
         }
         else if (check(TokenType::kLBraces))
         {
@@ -1741,9 +2697,13 @@ namespace neo
                 {
                     // Parse variable
 
-                    auto var = parseVarDecl();
+                    auto var = parseVarDecl(false);
                     CHECK_ERROR(var);
                     auto ptr = var.value();
+                    if (ptr == nullptr)
+                    {
+                        return unexpectedToken("struct field declaration");
+                    }
                     ptr->modifier = std::move(md);
                     md = ASTModifier{};
 
@@ -1751,9 +2711,30 @@ namespace neo
 
                     if (!check(TokenType::kComma))
                     {
-                        if (expect(TokenType::kRBraces))
+                        if (check(TokenType::kRBraces))
                             continue;
-                        return Result::failure("Need comma to split variable declaration.", ERRR());
+                        return Result::failure("expected ',' after struct field declaration", ERRR());
+                    }
+                    advance(); // Skip ','
+                }
+                else if (check(TokenType::kIdentifier) && expect(TokenType::kColon))
+                {
+                    auto var = parseColonVarDecl(false);
+                    CHECK_ERROR(var);
+                    auto ptr = var.value();
+                    if (ptr == nullptr)
+                    {
+                        return unexpectedToken("struct field declaration");
+                    }
+                    ptr->modifier = std::move(md);
+                    md = ASTModifier{};
+                    gd->variables.push_back(ptr);
+
+                    if (!check(TokenType::kComma))
+                    {
+                        if (check(TokenType::kRBraces))
+                            continue;
+                        return Result::failure("expected ',' after struct field declaration", ERRR());
                     }
                     advance(); // Skip ','
                 }
@@ -1774,16 +2755,16 @@ namespace neo
                 else
                 {
                     // Fallback:
-                    return Result::failure("Unexpected token found in struct's body.", ERRR());
+                    return Result::failure(msg("unexpected token ", tokenText(current()), " in struct body"), ERRR());
                 }
             } while (true);
         }
         else
         {
-            return Result::failure("Unexpected token after struct's name", ERRR());
+            return Result::failure(msg("unexpected token ", tokenText(current()), " after struct declaration"), ERRR());
         }
 
-        return gd.getPtr();
+        return setLoc(gd.getPtr(), start);
     }
 
     // If-Stmt parser
@@ -1888,7 +2869,15 @@ namespace neo
         }
 
         if (!check(TokenType::kSemicolon))
-            return Result::failure("return statement if not closed by semicolon, need ';' after return xxx <--", ERRR());
+        {
+            m_diag.error(((check(TokenType::kRBraces) || check(TokenType::kEOF)) ? previous() : current()).location(m_args.file),
+                         "expected ';' after return statement");
+            if (!check(TokenType::kRBraces) && !check(TokenType::kEOF))
+            {
+                synchronizeStmt();
+            }
+            return setLoc(gd.getPtr(), start);
+        }
         advance(); // Skip ';'
         return setLoc(gd.getPtr(), start);
     }
@@ -1901,10 +2890,11 @@ namespace neo
 
         if (!check(TokenType::kColon))
             return baseClasses;
+        advance(); // Skip ':'
 
         do
         {
-            advance();
+            // advance();
             if (check(TokenType::kLBraces) || check(TokenType::kSemicolon))
             {
                 break;
@@ -1912,7 +2902,7 @@ namespace neo
             else if (check(TokenType::kComma))
             {
                 advance();
-                break;
+                continue;
             }
             else
             {
@@ -1938,16 +2928,30 @@ namespace neo
         auto rS = parseScope();
         CHECK_ERROR(rS);
         auto gd = ScopeGuard(new TryStmt(rS.value()));
+        auto syncCatch = [&]()
+        {
+            while (!check(TokenType::kEOF))
+            {
+                if (check(TokenType::kCatch) || check(TokenType::kLBraces) || check(TokenType::kRBraces))
+                {
+                    return;
+                }
+                advance();
+            }
+        };
 
-    parseAgain:
-        if (check(TokenType::kCatch))
+        if (!check(TokenType::kCatch))
+        {
+            return Result::failure("try statement requires at least one catch handler", ERRR());
+        }
+
+        while (check(TokenType::kCatch))
         {
             // Parse handler
 
             advance(); // Skip 'catch'
-            auto gdH = ScopeGuard(new CatchStmt());
+            auto gdH = ScopeGuard(new CatchClause());
             gdH->m_loc = current().location(m_args.file);
-            gdH->errorType = nullptr;
 
             if (check(TokenType::kLParen))
             {
@@ -1955,13 +2959,28 @@ namespace neo
 
                 // Parse type
                 auto rArgs = parseFuncArgs();
-                CHECK_ERROR(rArgs);
-                auto rD = rArgs.value();
-                if (rD.size() != 1)
+                if (!rArgs)
                 {
-                    return Result::failure("Catch handler only avaliable for single exception type!", ERRR());
+                    syncCatch();
+                    if (!check(TokenType::kLBraces))
+                    {
+                        m_diag.error(current().location(m_args.file), "catch handler declaration is invalid");
+                        continue;
+                    }
                 }
-                gdH->errorType = rD[0];
+                else
+                {
+                    auto rD = rArgs.value();
+                    if (rD.size() != 1)
+                    {
+                        m_diag.error(current().location(m_args.file), "catch handler only supports a single exception type");
+                    }
+                    else
+                    {
+                        gdH->varName = rD[0]->name;
+                        gdH->errorType = rD[0]->type;
+                    }
+                }
                 goto parseBody;
             }
             else if (check(TokenType::kLBraces))
@@ -1970,23 +2989,19 @@ namespace neo
 
             parseBody:
                 if (!check(TokenType::kLBraces))
-                    return Result::failure("Catch body not found!", ERRR());
+                {
+                    m_diag.error(current().location(m_args.file), "expected '{' to start catch body");
+                    syncCatch();
+                    continue;
+                }
                 auto rSH = parseScope();
                 CHECK_ERROR(rSH);
                 gdH->handlerBody = rSH.value();
             }
             gd->handlers.push_back(gdH.getPtr());
+        }
 
-            // Check if any other handler exist.
-            if (check(TokenType::kCatch))
-                goto parseAgain;
-            else
-                return setLoc(gd.getPtr(), start);
-        }
-        else
-        {
-            return Result::failure("Try block without any catch handler", ERRR());
-        }
+        return setLoc(gd.getPtr(), start);
     }
 
     // For loop parser
@@ -2029,7 +3044,7 @@ namespace neo
                         }
                         else
                         {
-                            return Result::failure("for statement initializer should be a variable declaration.", ERRR());
+                            return Result::failure("for-loop initializer must be a variable declaration", ERRR());
                         }
                     }
                 }
@@ -2071,7 +3086,7 @@ namespace neo
 
                 auto rB = parseStmt();
                 CHECK_ERROR(rB);
-                gd->forBody = rB.value();
+                gd->body = rB.value();
             }
         }
         else if (check(TokenType::kLBraces))
@@ -2081,7 +3096,7 @@ namespace neo
         parseScopeBody:
             auto rScp = parseScope();
             CHECK_ERROR(rScp);
-            gd->forBody = rScp.value();
+            gd->body = rScp.value();
         }
         else
         {
@@ -2250,24 +3265,41 @@ namespace neo
             // cast<i32>(...)
             advance(); // Skip 'cast'
             if (!check(TokenType::kLt))
-                return Result::failure("No type hint in cast expression -> <...", ERRR());
+                return Result::failure("expected type in cast expression", ERRR());
             advance(); // Skip '<'
             auto rCType = parseType();
             CHECK_ERROR(rCType);
             if (!check(TokenType::kGt))
-                return Result::failure("Type hint is not closed in cast expression -> ...>", ERRR());
+                return Result::failure("expected '>' to close cast type", ERRR());
             advance(); // Skip '>'
 
             if (!check(TokenType::kLParen))
-                return Result::failure("No cast body -> (...", ERRR());
+                return Result::failure("expected cast operand", ERRR());
             advance(); // Skip '('
             auto rCExpr = parseExpr();
             CHECK_ERROR(rCExpr);
             if (!check(TokenType::kRParen))
-                return Result::failure("Cast body not closed -> ...)", ERRR());
+                return Result::failure("expected ')' to close cast expression", ERRR());
             advance(); // Skip ')'
 
             return setLoc(new CastExpr(rCExpr.value(), rCType.value()), start);
+        }
+        else if (check(TokenType::kNew))
+        {
+            // new Type(args)
+            advance(); // Skip 'new'
+            auto rNType = parseType();
+            CHECK_ERROR(rNType);
+            if (rNType.value() == nullptr)
+                return expectedToken("a type after 'new'", "new expression");
+            Vector<ASTExpr *> args{};
+            if (check(TokenType::kLParen))
+            {
+                auto rArgs = parseFuncCallArgs();
+                CHECK_ERROR(rArgs);
+                args = std::move(rArgs.value());
+            }
+            return setLoc(new NewExpr(rNType.value(), std::move(args)), start);
         }
         else if (check(TokenType::kLBracket))
         {
@@ -2290,13 +3322,15 @@ namespace neo
             }
 
             if (!check(TokenType::kRBracket))
-                return Result::failure("array literal not closed -> ']'", ERRR());
+                return Result::failure("expected ']' to close array literal", ERRR());
             advance(); // skip ']'
 
             return setLoc(new ArrayLiteralExpr(std::move(elements)), start);
         }
 
-        return Result::failure("Unexpected token in primary expression: " + current().toString(), ERRR());
+        m_diag.error(start.location(m_args.file), "unexpected token " + tokenText(current()) + " in expression");
+        synchronizeExpr();
+        return makeErrorExpr(start);
     }
 
     // PostPrefix expression parser
@@ -2323,7 +3357,7 @@ namespace neo
                 // Member access expression
 
                 if (!expect(TokenType::kIdentifier))
-                    return Result::failure("exptected identifier but got unexpected token after member access dot", ERRR());
+                    return Result::failure(msg("expected member name after '.', found ", tokenText(current())), ERRR());
                 advance(); // Skip '.'
                 leftExpr = new MemberAccessExpr(leftExpr, current().value);
                 leftExpr->m_loc = start;
@@ -2337,7 +3371,7 @@ namespace neo
                 auto index = parseExpr(); // TODO maybe multi-args index?
                 CHECK_ERROR(index);
                 if (!check(TokenType::kRBracket))
-                    return Result::failure("subscript expression not closed -> ']'", ERRR());
+                    return Result::failure("expected ']' to close subscript expression", ERRR());
                 advance(); // Skip ']'
                 leftExpr = new SubscriptExpr(index.value());
                 leftExpr->m_loc = start;
@@ -2357,18 +3391,6 @@ namespace neo
                 auto expr = new PostfixExpr(PostPrefixOp::kDec, leftExpr);
                 expr->m_loc = start;
                 return expr;
-            }
-            else if (check(TokenType::kNew))
-            {
-                // new xxx(...);
-                advance(); // Skip 'new'
-                auto rNType = parseType();
-                CHECK_ERROR(rNType);
-                if (!check(TokenType::kLParen))
-                    return Result::failure("new instance should provide a argument body.");
-                auto rNArgs = parseFuncCallArgs();
-                CHECK_ERROR(rNArgs);
-                return setLoc(new NewExpr(rNType.value(), rNArgs.value()), current());
             }
             else
             {
@@ -2400,7 +3422,7 @@ namespace neo
                 auto rType = parseType();
                 CHECK_ERROR(rType);
                 if (!check(TokenType::kRParen))
-                    return Result::failure("type body is not closed -> ...)", ERRR());
+                    return Result::failure("expected ')' to close type expression", ERRR());
                 advance(); // Skip ')'
                 auto rOperand = parseUnaryExpr();
                 CHECK_ERROR(rOperand);
@@ -2599,7 +3621,7 @@ namespace neo
         CHECK_ERROR(trueExpr);
 
         if (!check(TokenType::kColon))
-            return Result::failure("expected : in conditional expression but got none.", ERRR());
+            return Result::failure("expected ':' in conditional expression", ERRR());
         advance(); // Skip ':'
 
         auto falseExpr = parseExpr();
@@ -2700,16 +3722,19 @@ namespace neo
             return false;
         }
 
-        // dump ast logic
+        if (m_diag.hasError())
+        {
+            m_diag.printAll();
+        }
 
         return true;
     }
 
     // Check current token is modifier or not
-    bool NParser::isModifier(TokenType t)
-    {
-        return std::find(&s_modifier[0], &s_modifier[7], t) != &s_modifier[7];
-    }
+	bool NParser::isModifier(TokenType t)
+	{
+        return std::find(std::begin(s_modifier), std::end(s_modifier), t) != std::end(s_modifier);
+	}
 
     // Check current is type or expression
     bool NParser::isType()
@@ -2735,10 +3760,15 @@ namespace neo
             return false;
         }
 
-        // dump ast logic
+        if (m_diag.hasError())
+        {
+            m_diag.printAll();
+        }
 
         return true;
     }
 #endif
 
 }
+
+

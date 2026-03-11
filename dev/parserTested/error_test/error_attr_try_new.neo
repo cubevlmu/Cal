@@ -1,0 +1,11 @@
+[Deprecated("msg")
+fun brokenAttr() {}
+
+[Attribute("A")]
+const fun brokenType(dd : const) {
+    try {
+        throw new Exception("x")
+    } catch(e : ) {
+        new ;
+    }
+}

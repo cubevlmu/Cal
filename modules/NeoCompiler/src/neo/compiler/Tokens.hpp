@@ -159,24 +159,7 @@ namespace neo
 
         SourceLoc location(NSourceFile *file = nullptr) const
         {
-            psize normalizedCursor = cursor;
-            if (!value.empty())
-            {
-                const char first = value[0];
-                if ((first == '_' || std::isalnum(static_cast<unsigned char>(first))) && normalizedCursor >= value.length())
-                {
-                    normalizedCursor -= value.length();
-                }
-                else if (type == TokenType::kStringLit && normalizedCursor >= value.length() + 2)
-                {
-                    normalizedCursor -= value.length() + 2;
-                }
-                else if (type == TokenType::kCharLit && normalizedCursor >= 3)
-                {
-                    normalizedCursor -= 3;
-                }
-            }
-            return SourceLoc{line, normalizedCursor, file};
+            return SourceLoc{line, cursor, file};
         }
 
         static NToken Invalid;

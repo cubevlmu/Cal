@@ -1,0 +1,18 @@
+class BrokenClass {
+    ctor() {
+    }
+
+    field value : i32 {getValue setValue}
+    private privateFunc() {}
+    static fun create() BrokenClass {
+        return BrokenClass()
+    }
+
+    aaa
+
+    fun getValue() i32 {
+        return 10;
+    }
+    fun setValue(v : i32) {
+    }
+}
